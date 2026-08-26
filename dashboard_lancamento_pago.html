@@ -745,7 +745,7 @@ const I18N_RX=[
   [/^(\d[\d\.]*) respondentes selecionados$/,'$1 respondientes seleccionados'],
   [/^([\d\.]+) \/ ([\d\.]+) captados$/,'$1 / $2 captados'],
   [/^([\d\.,]+)% do total$/,'$1% del total'],
-  [/^campanhas atribuídas ao país pela nomenclatura · vendas via UTM \(inclui truncadas\) · Fat\. Certificación pela base de origem da aba$/,'campañas atribuidas al país por la nomenclatura · ventas vía UTM (incluye truncadas) · Fact. Certificación por la base de origen de la pestaña'],
+  [/^investimento pela nomenclatura das campanhas · vendas do país pela coluna País da planilha · linhas de campanha\/conjunto pela UTM\/SCK \(vendas sem UTM aparecem só nos totais do país\)$/,'inversión por la nomenclatura de las campañas · ventas del país por la columna País de la hoja · líneas de campaña/conjunto por la UTM/SCK (ventas sin UTM aparecen solo en los totales del país)'],
   [/^Total (.+)$/,'Total $1'],
   [/^somente UTMs com nomenclatura de tráfego \(casadas com os nomes do Meta, inclusive truncadas\) · ROAS = \(Fat\. Captação \+ Fat\. Certificación\) ÷ Invest\.$/,'solo UTMs con nomenclatura de tráfico (casadas con los nombres de Meta, incluso truncadas) · ROAS = (Fact. Captación + Fact. Certificación) ÷ Invers.'],
   [/^(.+) · c\/ upsells$/,'$1 · c/ upsells'],
@@ -1179,6 +1179,45 @@ function resolveIn(val, keys, min=25){
   }
   return hit;
 }
+function atribAux(S){
+  // Índices auxiliares p/ atribuição de vendas: SCK abreviado + reverso por conjunto
+  const vazio=new Set();
+  const stripK=s=>String(s||'').replace(/[^a-z0-9]/g,'');
+  const campStrip=[]; S.camp.forEach((_,k)=>campStrip.push([stripK(k),k]));
+  const owners={}; Object.keys(S.adsetsByCamp||{}).forEach(c=>{(S.adsetsByCamp[c]||vazio).forEach(a=>{(owners[a]=owners[a]||[]).push(c);});});
+  const spDia={}, spDiaA={};
+  if(Array.isArray(META_RAW_CAMP)) META_RAW_CAMP.forEach(x=>{if(filtroLct&&!x.lct)return;
+    const k=normUtm(x.c)+'|'+x.d; spDia[k]=r2((spDia[k]||0)+x.sp);
+    if(x.a){const ka=normUtm(x.c)+'|'+normUtm(x.a)+'|'+x.d; spDiaA[ka]=r2((spDiaA[ka]||0)+x.sp);}});
+  return {stripK,campStrip,owners,spDia,spDiaA};
+}
+function campDaVenda(r,S,A){
+  // Campanha da venda: utm_term → utm_campaign → prefixo sem separadores → reverso pelo conjunto
+  const okv=s=>{const n=normUtm(s);return (!n||n.startsWith('{{'))?null:n;};
+  const t0=okv(r.ut), cu=okv(r.uc), m0=okv(r.um);
+  let t=t0?resolveIn(t0,S.camp):null;
+  if(!t&&cu) t=resolveIn(cu,S.camp);
+  if(!t){
+    for(const cand of [t0,cu]){
+      if(!cand) continue;
+      const sp=A.stripK(cand);
+      if(sp.length<10) continue;
+      const hits=A.campStrip.filter(p=>p[0].startsWith(sp));
+      if(hits.length===1){t=hits[0][1];break;}
+    }
+  }
+  if(!t&&m0){
+    const os=(A.owners[m0]||[]).filter(c=>S.camp.has(c));
+    if(os.length===1) t=os[0];
+    else if(os.length>1){
+      const sdA=c=>A.spDiaA[c+'|'+m0+'|'+r.d]||0;
+      const sd =c=>A.spDia[c+'|'+r.d]||0;
+      const pool=os.slice().sort((a,b)=>(sdA(b)-sdA(a))||(sd(b)-sd(a)));
+      t=pool[0];
+    }
+  }
+  return t;
+}
 function utmSalesIdx(){
   // Vendas Hotmart atribuídas por UTM: utm_term=campanha · utm_medium=conjunto · utm_content=anúncio
   // Conjuntos/anúncios usam CHAVE COMPOSTA (nomes de conjunto se repetem entre campanhas)
@@ -1187,35 +1226,10 @@ function utmSalesIdx(){
   const idx={camp:{},adset:{},ad:{}};
   const S=metaNameSets();
   const vazio=new Set();
-  // Auxiliares p/ SCK abreviado (ex.: CERTIF-IA-SET-26 vs CERTIF-IA-SET26-…) e reverso por conjunto
-  const stripK=s=>String(s||'').replace(/[^a-z0-9]/g,'');
-  const campStrip=[]; S.camp.forEach((_,k)=>campStrip.push([stripK(k),k]));
-  const owners={}; Object.keys(S.adsetsByCamp||{}).forEach(c=>{(S.adsetsByCamp[c]||vazio).forEach(a=>{(owners[a]=owners[a]||[]).push(c);});});
-  const spDia={}; if(Array.isArray(META_RAW_CAMP)) META_RAW_CAMP.forEach(x=>{if(filtroLct&&!x.lct)return;const k=normUtm(x.c)+'|'+x.d;spDia[k]=r2((spDia[k]||0)+x.sp);});
+  const AUX=atribAux(S);
   hotRawFiltered().forEach(r=>{
-    const t0=ok(r.ut), m0=ok(r.um), c0=ok(r.uco);
-    let t=t0?resolveIn(t0,S.camp):null;                          // 1º: utm_term (aceita truncada)
-    const cu=ok(r.uc);
-    if(!t&&cu) t=resolveIn(cu,S.camp);                           // 2º: utm_campaign
-    if(!t){                                                      // 3º: prefixo ignorando separadores
-      for(const cand of [t0,cu]){
-        if(!cand) continue;
-        const sp=stripK(cand);
-        if(sp.length<10) continue;
-        const hits=campStrip.filter(p=>p[0].startsWith(sp));
-        if(hits.length===1){t=hits[0][1];break;}
-      }
-    }
-    if(!t&&m0){                                                  // 4º: reverso pelo conjunto
-      const os=(owners[m0]||[]).filter(c=>S.camp.has(c));
-      if(os.length===1) t=os[0];
-      else if(os.length>1){                                      // empate → maior invest. no dia da venda
-        const sd=c=>spDia[c+'|'+r.d]||0;
-        const comG=os.filter(c=>sd(c)>0);
-        const pool=(comG.length?comG:os).slice().sort((a,b)=>sd(b)-sd(a));
-        t=pool[0];
-      }
-    }
+    const m0=ok(r.um), c0=ok(r.uco);
+    const t=campDaVenda(r,S,AUX);
     if(!t) return;
     add(idx.camp, t, r);
     const m=m0?resolveIn(m0, S.adsetsByCamp[t]||vazio):null;    // conjunto DENTRO da campanha
@@ -1554,6 +1568,17 @@ function paisDaCampanha(nome){
   if(vistos.length===1) return vistos[0];
   return vistos.map(p=>PAIS_CURTO[p]||p).join('·');
 }
+const PAIS_ISO={'AR':'Argentina','MX':'México','CO':'Colombia','US':'USA','PE':'Perú','EC':'Ecuador','CL':'Chile','ES':'España','BR':'Brasil','UY':'Uruguay','PY':'Paraguay','BO':'Bolivia','VE':'Venezuela','PA':'Panamá','CR':'Costa Rica','GT':'Guatemala','DO':'Rep. Dominicana','HN':'Honduras','SV':'El Salvador','NI':'Nicaragua','CA':'Canadá','PT':'Portugal','GB':'Reino Unido','IT':'Itália','DE':'Alemanha','FR':'França','AU':'Austrália'};
+function bucketDoComprador(ps, buckets){
+  const iso=String(ps||'').trim().toUpperCase();
+  if(!iso) return null;
+  const label=PAIS_ISO[iso]||iso;
+  if(buckets.includes(label)) return label;                      // bucket próprio do país
+  const curto=PAIS_CURTO[label]||label;
+  const multi=buckets.find(b=>b.includes('·')&&b.split('·').includes(curto));
+  if(multi) return multi;                                        // bucket multi-país que cobre o país
+  return label;                                                  // país sem campanha própria (invest. 0)
+}
 let paisAtual=null;
 function setPaisAn(p){paisAtual=p;renderPaisAn();}
 function renderPaisAn(){
@@ -1581,14 +1606,20 @@ function renderPaisAn(){
     p.inv=r2(p.inv+r.sp); c.inv=r2(c.inv+r.sp);
     if(r.a){const a=c.adsets[r.a]=c.adsets[r.a]||{inv:0,capN:0,capV:0,ceN:0,ceV:0};a.inv=r2(a.inv+r.sp);}
   });
-  const addVenda=(r,tipo,val)=>{
-    const t=resolveIn(normUtm(r.ut||''),S.camp); if(!t) return;
+  const AUX=atribAux(S);
+  // Vendas do PAÍS: pela coluna País da planilha (país do comprador)
+  const addPais=(r,tipo,val)=>{
+    const b=bucketDoComprador(r.ps, Object.keys(P)); if(!b) return;
+    const p=P[b]=P[b]||{inv:0,capN:0,capV:0,ceN:0,ceV:0,camps:{}};
+    if(tipo==='cap'){p.capN++;p.capV=r2(p.capV+val);} else {p.ceN++;p.ceV=r2(p.ceV+val);}
+  };
+  // Linhas de campanha/conjunto: atribuição pela UTM/SCK (mesma cadeia do gerenciador)
+  const addDrill=(r,tipo,val)=>{
+    const t=campDaVenda(r,S,AUX); if(!t) return;
     const pais=campPais[t]; if(!pais||!P[pais]) return;
     const nomeC=S.camp.get(t);
     const c=P[pais].camps[nomeC]; if(!c) return;
-    const p=P[pais];
-    if(tipo==='cap'){p.capN++;p.capV=r2(p.capV+val);c.capN++;c.capV=r2(c.capV+val);}
-    else{p.ceN++;p.ceV=r2(p.ceV+val);c.ceN++;c.ceV=r2(c.ceV+val);}
+    if(tipo==='cap'){c.capN++;c.capV=r2(c.capV+val);} else {c.ceN++;c.ceV=r2(c.ceV+val);}
     const m=resolveIn(normUtm(r.um||''), S.adsetsByCamp[t]||new Set());
     if(m){
       const nomeA=S.adset.get(m);
@@ -1596,8 +1627,8 @@ function renderPaisAn(){
       if(tipo==='cap'){a.capN++;a.capV=r2(a.capV+val);} else {a.ceN++;a.ceV=r2(a.ceV+val);}
     }
   };
-  (HOT_RAW||[]).forEach(r=>{if(inPer(r.d)) addVenda(r,'cap',r.v||0);});
-  if(CERT&&Array.isArray(CERT_RAW)) CERT_RAW.forEach(r=>{if(inPer(r.d)) addVenda(r,'cert',V);});
+  (HOT_RAW||[]).forEach(r=>{if(inPer(r.d)){addPais(r,'cap',r.v||0);addDrill(r,'cap',r.v||0);}});
+  if(CERT&&Array.isArray(CERT_RAW)) CERT_RAW.forEach(r=>{if(inPer(r.d)){addPais(r,'cert',V);addDrill(r,'cert',V);}});
   // ── pills ──
   const paises=Object.keys(P).sort((a,b)=>P[b].inv-P[a].inv);
   const pillsEl=document.getElementById('paisPills');
@@ -1663,7 +1694,7 @@ function renderPaisAn(){
       <td class="num" style="${mono};color:#f97316">${fR(d.ceV)}</td>
       <td class="num" style="${mono};color:#059669">${fR(fatTot)}</td>`:''}
       <td class="num ${rc}" style="${mono}">${fx(roas)}</td></tr>
-    <tr><td colspan="${temCert?8:5}" style="padding:4px 9px;font-size:9px;color:var(--muted2)">campanhas atribuídas ao país pela nomenclatura · vendas via UTM (inclui truncadas) · Fat. Certificación pela base de origem da aba</td></tr></tfoot>
+    <tr><td colspan="${temCert?8:5}" style="padding:4px 9px;font-size:9px;color:var(--muted2)">investimento pela nomenclatura das campanhas · vendas do país pela coluna País da planilha · linhas de campanha/conjunto pela UTM/SCK (vendas sem UTM aparecem só nos totais do país)</td></tr></tfoot>
   </table>`;
 }
 function renderGeral(){
