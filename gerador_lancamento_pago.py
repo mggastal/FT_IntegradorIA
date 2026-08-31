@@ -57,7 +57,9 @@ PRODUTO_CERT = None   # etapa de captação — sem vendas do produto principal 
 # PRODUTO_CERT = {"nome":"<nome do produto>","apelido":"Ventas","valor":<preço>}
 CERT_INICIO  = "05/08/2026"   # vendas ANTES desta data são teste — ignoradas
 # Upsells do lançamento — identificados pelo CÓDIGO DE OFERTA (o produto pode vender por outras ofertas fora do lançamento)
-UPSELLS = []   # sem upsells por enquanto
+UPSELLS = [   # upsell NÃO entra no CAC (só vendas de captação contam lá); entra no Faturamento Total
+    {"oferta":"p3fvhage","nome":"Ebook Más IA Menos Chamba","valor":19},
+]
 
 # Comparativo de especialistas/lados — casa tokens no nome da campanha (invest) e nos UTMs (vendas).
 # Ordem importa: o primeiro lado que casar vence. [] = painel oculto.
