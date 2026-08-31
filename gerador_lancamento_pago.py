@@ -613,6 +613,18 @@ def _class_sck(txt):
     t = str(txt or "").strip()
     if not t or t.lower()=="nan": return "", "", dict(VAZIO)
     lado = _lado_txt(t.upper())
+    if "=" not in t and "." in t and not t.lower().startswith("meta-ads"):
+        # Formato por PONTOS: "fonte.conjunto.campanha" ou "criativo.conjunto.campanha"
+        parts = [p.strip() for p in t.split(".")]
+        psrc  = (parts[0] or "").lower()
+        pmed  = parts[1] if len(parts) >= 2 else ""
+        pcamp = ".".join(parts[2:]) if len(parts) >= 3 else ""
+        u = {"us":parts[0],"um":pmed,"uc":pcamp,"uco":"","ut":pcamp}
+        if psrc in _PAGO_SRC: return "Pago", lado, u
+        if LANCAMENTO_COD and LANCAMENTO_COD.lower() in pcamp.lower():
+            return "Pago", lado, u      # 1º segmento é o criativo; campanha tem a nomenclatura do lançamento
+        if psrc == "email": return "Orgânico", lado, u
+        return "", lado, u              # indefinido → cascata decide (jornada / fallback)
     if t.lower().startswith("meta-ads"):    # formato "meta-ads.Funil.Campanha"
         parts = [p.strip() for p in t.split(".") if p.strip()]
         u = {"us":"meta-ads","um":parts[1] if len(parts)>=3 else "",
@@ -743,6 +755,7 @@ def load_upsells():
     df["date"]=pd.to_datetime(g_on(df,col,"Order Date"),errors="coerce")
     df["_sck2"]=g_on(df,col,"Tracking Source SCK").astype(str)
     jorn=_jornada_acceso()
+    pais_col = next((c for c in df.columns if _norm_pais(c) in ("pais","country","pais do comprador")), None)
     info=[]; rows=[]
     for u in UPSELLS:
         d=df[(df["of2"]==u["oferta"].lower())].dropna(subset=["date"])
@@ -753,7 +766,8 @@ def load_upsells():
                 j = jorn.get(r["_email"])              # 2º: jornada (compra do Acceso)
                 if j: org = "Pago" if j["pago"] else "Orgânico"
             if not org: org = "Pago"                   # 3º: fallback — considerar tráfego pago
-            rows.append({"d":r["date"].strftime("%d/%m"),"p":u["nome"],"v":float(u["valor"]),"org":org})
+            rows.append({"d":r["date"].strftime("%d/%m"),"p":u["nome"],"v":float(u["valor"]),"org":org,
+                         "ps": (pais_code(r[pais_col]) if pais_col is not None else "")})
     for u in UPSELLS:
         rp=[r for r in rows if r["p"]==u["nome"]]
         print(f"  Upsell {u['nome']}: {len(rp)} | Pago {sum(1 for r in rp if r['org']=='Pago')} · Orgânico {sum(1 for r in rp if r['org']=='Orgânico')}")
