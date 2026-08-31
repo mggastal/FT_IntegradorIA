@@ -2682,8 +2682,9 @@ function renderCrm(){
     <div class="kpi" style="--kc:#16a34a"><div class="kpi-lbl">${t('crm_kpi_leads_org')}</div><div class="kpi-val">${fN(nOrg)}</div><div class="kpi-sub">${t('crm_kpi_leads_org_sub')}</div></div>
     <div class="kpi" style="--kc:#dc2626"><div class="kpi-lbl">${t('crm_kpi_cpl')}</div><div class="kpi-val">${cplReal!=null?fR(cplReal):'—'}</div><div class="kpi-sub">${t('crm_kpi_cpl_sub')}</div></div>`;
 
-  renderCrmDaily(rowsPago);            // gráfico diário e painéis usam os PAGOS (têm UTM de tráfego)
-  renderCrmUtmPanels(rowsPago, invest);
+  const rowsTodos=acRowsPeriodo('todos');   // relatório do Active = TODOS os leads (pago + orgânico)
+  renderCrmDaily(rowsTodos);
+  renderCrmUtmPanels(rowsTodos, invest);
 }
 
 function renderCrmDaily(rows){
