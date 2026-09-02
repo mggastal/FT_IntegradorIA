@@ -28,7 +28,10 @@ OFERTAS_PAGO     = ["jiohudh9",   # Landing A · 10 USD
                     "r4rmy0ai",   # Landing A · 29 USD
                     "3znreyg2",   # Landing B · 10 USD
                     "qc4j499r",   # Landing B · 29 USD
-                    "rln5ac84"]   # VIP · código adicional (confirmado pago)
+                    "rln5ac84",   # VIP · código adicional (confirmado pago)
+                    "5nc5hodd",   # VIP · tráfego (confirmado)
+                    "ftjalmwl",   # General · tráfego (confirmado)
+                    "p3fvhage"]   # Ebook (upsell) · tráfego (confirmado)
 # (SCK ainda é lido para as tabelas de UTM, mas NÃO define mais a origem)
 SCK_SRC_PAGO     = ["fb","facebook","ig","instagram"]
 # Valor por venda: como a Hotmart traz moedas misturadas, cada venda conta um valor FIXO.
@@ -761,7 +764,9 @@ def load_upsells():
         d=df[(df["of2"]==u["oferta"].lower())].dropna(subset=["date"])
         info.append({"nome":u["nome"],"valor":float(u["valor"]),"oferta":u["oferta"]})
         for _,r in d.iterrows():
-            org,_,_ = _class_sck(r["_sck2"])          # 1º: SCK da própria venda
+            org = "Pago" if str(u["oferta"]).strip() in {str(x).strip() for x in OFERTAS_PAGO} else ""   # 0º: oferta na lista de pago
+            if not org:
+                org,_,_ = _class_sck(r["_sck2"])      # 1º: SCK da própria venda
             if not org:
                 j = jorn.get(r["_email"])              # 2º: jornada (compra do Acceso)
                 if j: org = "Pago" if j["pago"] else "Orgânico"
