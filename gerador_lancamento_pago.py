@@ -158,14 +158,19 @@ def parse_sck(s):
     # segmento 1 = fonte · 2 = conjunto/medium · 3+ = campanha
     if "=" not in s_limpo and "." in s_limpo:
         partes = [p.strip() for p in s_limpo.split(".")]
-        psrc   = (partes[0] or "").lower()
+        _FONTES = {"ig","fb","facebook","instagram","email","meta-ads","google","yt","youtube","tiktok","direct","organic","wpp","whatsapp","msg","manychat"}
+        p0 = (partes[0] or "").strip()
+        if p0.lower() in _FONTES or len(partes) < 3:
+            psrc, pcont = p0.lower(), ""
+        else:
+            psrc, pcont = "", p0        # 1º segmento é o CRIATIVO (nome do anúncio no Meta)
         pmed   = partes[1] if len(partes) >= 2 else ""
         pcamp  = ".".join(partes[2:]) if len(partes) >= 3 else ""
         if psrc in SCK_SRC_PAGO: porig = "Pago"
         elif psrc == "email":    porig = "Orgânico"
         elif psrc == "":         porig = "Direto"
         else:                    porig = "Orgânico"
-        return {"source":psrc,"medium":pmed,"campaign":pcamp,"content":"","term":pcamp,"origem":porig}
+        return {"source":psrc,"medium":pmed,"campaign":pcamp,"content":pcont,"term":pcamp,"origem":porig}
     q = dict(_up.parse_qsl(s_limpo))
     src = (q.get("utm_source","") or "").strip().lower()
     if src in SCK_SRC_PAGO: origem = "Pago"
@@ -238,7 +243,8 @@ def load_hotmart():
     df["pais"] = df[pais_col].apply(pais_code) if pais_col else ""
     df["origem_sck"] = df["oferta"].isin(pago_set).map({True:"Pago",False:"Orgânico"})
     df["Organico ou Pago"] = df["origem_sck"]
-    df["sck_label"] = df.apply(lambda r: (str(r["src"]).upper()+" · "+str(r["med"])) if r["src"] else "Direto / Não rastreado", axis=1)
+    df["sck_label"] = df.apply(lambda r: (str(r["src"]).upper()+" · "+str(r["med"])) if r["src"]
+                               else ((str(r["u_content"])[:22]+" · "+str(r["med"])) if str(r.get("u_content","")).strip() else "Direto / Não rastreado"), axis=1)
 
     # ── Vendas extras manuais (fora do relatório) ──
     val_extra = float(VALOR_FIXO) if VALOR_FIXO is not None else 0.0
@@ -619,10 +625,15 @@ def _class_sck(txt):
     if "=" not in t and "." in t and not t.lower().startswith("meta-ads"):
         # Formato por PONTOS: "fonte.conjunto.campanha" ou "criativo.conjunto.campanha"
         parts = [p.strip() for p in t.split(".")]
-        psrc  = (parts[0] or "").lower()
+        _FONTES = {"ig","fb","facebook","instagram","email","meta-ads","google","yt","youtube","tiktok","direct","organic","wpp","whatsapp","msg","manychat"}
+        p0 = (parts[0] or "").strip()
+        if p0.lower() in _FONTES or len(parts) < 3:
+            psrc, pcont = p0.lower(), ""
+        else:
+            psrc, pcont = "", p0        # criativo no 1º segmento
         pmed  = parts[1] if len(parts) >= 2 else ""
         pcamp = ".".join(parts[2:]) if len(parts) >= 3 else ""
-        u = {"us":parts[0],"um":pmed,"uc":pcamp,"uco":"","ut":pcamp}
+        u = {"us":psrc,"um":pmed,"uc":pcamp,"uco":pcont,"ut":pcamp}
         if psrc in _PAGO_SRC: return "Pago", lado, u
         if LANCAMENTO_COD and LANCAMENTO_COD.lower() in pcamp.lower():
             return "Pago", lado, u      # 1º segmento é o criativo; campanha tem a nomenclatura do lançamento
