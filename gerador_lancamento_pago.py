@@ -62,6 +62,7 @@ CERT_INICIO  = "05/08/2026"   # vendas ANTES desta data são teste — ignoradas
 # Upsells do lançamento — identificados pelo CÓDIGO DE OFERTA (o produto pode vender por outras ofertas fora do lançamento)
 UPSELLS = [   # upsell NÃO entra no CAC (só vendas de captação contam lá); entra no Faturamento Total
     {"oferta":"p3fvhage","nome":"Ebook Más IA Menos Chamba","valor":19},
+    {"oferta":"hsqpl2qe","nome":"Tu Marca Personal","valor":29},
 ]
 
 # Comparativo de especialistas/lados — casa tokens no nome da campanha (invest) e nos UTMs (vendas).
