@@ -80,11 +80,11 @@ CTR_BOM          = 1.0    # CTR ≥ 1.0% → verde | 0.8-1.0% → amarelo | <0.8
 CTR_MEDIO        = 0.8
 CR_BOM           = 71.0   # Connect Rate ≥ 71% → verde | 63-71% → amarelo | <63% → vermelho
 CR_MEDIO         = 63.0
-TX_IC_BOM        = 15.0   # Tx Init Checkout ≥ 15% → verde | 12-15% → amarelo | <12% → vermelho
-TX_IC_MEDIO      = 12.0
+TX_IC_BOM        = 10.0   # Tx Init Checkout ≥ 15% → verde | 12-15% → amarelo | <12% → vermelho
+TX_IC_MEDIO      = 9.0
 TX_CK_BOM        = 10.0   # Taxa Checkout ≥ 25% → verde | 20-25% → amarelo | <20% → vermelho
 TX_CK_MEDIO      = 9.0
-TX_CONV_BOM      = 4.0    # Taxa Conversão LP ≥ 7% → verde | 5-7% → amarelo | <5% → vermelho
+TX_CONV_BOM      = 3.5    # Taxa Conversão LP ≥ 7% → verde | 5-7% → amarelo | <5% → vermelho
 TX_CONV_MEDIO    = 3.0
 
 CPM_BOM          = 40.0    # CPM ≤ 7 → verde | 7-12 → amarelo | >12 → vermelho (menor = melhor)
