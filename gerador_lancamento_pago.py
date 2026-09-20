@@ -69,8 +69,8 @@ UPSELLS = [   # upsell NÃO entra no CAC (só vendas de captação contam lá); 
 # Ordem importa: o primeiro lado que casar vence. [] = painel oculto.
 LADOS_COMPARATIVO = []   # sem comparativo de lados neste lançamento
 
-CPA_BOM          = 14
-CPA_MEDIO        = 21
+CPA_BOM          = 25
+CPA_MEDIO        = 30
 ROAS_BOM         = 0.69
 ROAS_MEDIO       = 0.5
 
