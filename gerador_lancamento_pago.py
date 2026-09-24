@@ -55,10 +55,8 @@ EXTRAS_ORIGEM    = "Orgânico"            # Pago | Orgânico (entra no gráfico 
 # Produto PRINCIPAL do lançamento (alto ticket) — página própria com atribuição por jornada.
 # Vendas dele não têm SCK; origem/destino são herdados da compra do Acceso VIP pelo E-MAIL do
 # comprador (cruzamento feito AQUI no gerador — e-mails nunca vão para o HTML público).
-PRODUTO_CERT = None   # etapa de captação — sem vendas do produto principal ainda.
-# Quando abrir as vendas, configurar assim (nome EXATO do produto na Hotmart):
-# PRODUTO_CERT = {"nome":"<nome do produto>","apelido":"Ventas","valor":<preço>}
-CERT_INICIO  = "05/08/2026"   # vendas ANTES desta data são teste — ignoradas
+PRODUTO_CERT = {"nome":"Certificación Integrador IA","apelido":"Ventas Certificación","valor":797}
+CERT_INICIO      = "23/09/2026"   # vendas ANTES desta data são teste — ignoradas
 # Upsells do lançamento — identificados pelo CÓDIGO DE OFERTA (o produto pode vender por outras ofertas fora do lançamento)
 UPSELLS = [   # upsell NÃO entra no CAC (só vendas de captação contam lá); entra no Faturamento Total
     {"oferta":"p3fvhage","nome":"Ebook Más IA Menos Chamba","valor":19},
@@ -69,8 +67,8 @@ UPSELLS = [   # upsell NÃO entra no CAC (só vendas de captação contam lá); 
 # Ordem importa: o primeiro lado que casar vence. [] = painel oculto.
 LADOS_COMPARATIVO = []   # sem comparativo de lados neste lançamento
 
-CPA_BOM          = 25
-CPA_MEDIO        = 30
+CPA_BOM          = 14
+CPA_MEDIO        = 21
 ROAS_BOM         = 0.69
 ROAS_MEDIO       = 0.5
 
@@ -80,11 +78,11 @@ CTR_BOM          = 1.0    # CTR ≥ 1.0% → verde | 0.8-1.0% → amarelo | <0.8
 CTR_MEDIO        = 0.8
 CR_BOM           = 71.0   # Connect Rate ≥ 71% → verde | 63-71% → amarelo | <63% → vermelho
 CR_MEDIO         = 63.0
-TX_IC_BOM        = 10.0   # Tx Init Checkout ≥ 15% → verde | 12-15% → amarelo | <12% → vermelho
-TX_IC_MEDIO      = 9.0
-TX_CK_BOM        = 10.0   # Taxa Checkout ≥ 25% → verde | 20-25% → amarelo | <20% → vermelho
+TX_IC_BOM        = 15.0   # Tx Init Checkout ≥ 15% → verde | 12-15% → amarelo | <12% → vermelho
+TX_IC_MEDIO      = 12.0
+TX_CK_BOM        = 10.0   # Taxa Checkout ≥ 10% → verde | 9-10% → amarelo | <9% → vermelho
 TX_CK_MEDIO      = 9.0
-TX_CONV_BOM      = 3.5    # Taxa Conversão LP ≥ 7% → verde | 5-7% → amarelo | <5% → vermelho
+TX_CONV_BOM      = 4.0    # Taxa Conversão LP ≥ 4% → verde | 3-4% → amarelo | <3% → vermelho
 TX_CONV_MEDIO    = 3.0
 
 CPM_BOM          = 40.0    # CPM ≤ 7 → verde | 7-12 → amarelo | >12 → vermelho (menor = melhor)
@@ -98,7 +96,7 @@ URL_PES  = sheet_url("Pesquisa")
 URL_GA   = sheet_url("breakdown-gender-age")
 URL_PT   = sheet_url("breakdown-platform")
 URL_RG   = sheet_url("breakdown-regiao")
-URL_CERT = sheet_url("hotmart-CertificacionELF")
+URL_CERT = sheet_url("hotmart-IntegradorIA")
 URL_CRIAT= sheet_url("Criativos_x_Links")   # aba opcional: colA = nome do criativo, colB = link
 
 # Links fixos dos criativos (FALLBACK embutido — funciona mesmo sem a aba na planilha).
