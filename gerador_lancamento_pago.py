@@ -56,6 +56,9 @@ EXTRAS_ORIGEM    = "Orgânico"            # Pago | Orgânico (entra no gráfico 
 # Vendas dele não têm SCK; origem/destino são herdados da compra do Acceso VIP pelo E-MAIL do
 # comprador (cruzamento feito AQUI no gerador — e-mails nunca vão para o HTML público).
 PRODUTO_CERT = {"nome":"Certificación Integrador IA","apelido":"Ventas Certificación","valor":797}
+# Vendas manuais do produto principal (fora do relatório Hotmart) — ex.: carrito "1 solo pago"
+CERT_VENDAS_EXTRAS = [{"data":"23/09/2026","qtd":1}]
+CERT_NOTA = "* Incluye 1 venta manual (1 solo pago) del 23/09, fuera del reporte Hotmart"
 CERT_INICIO      = "23/09/2026"   # vendas ANTES desta data são teste — ignoradas
 # Upsells do lançamento — identificados pelo CÓDIGO DE OFERTA (o produto pode vender por outras ofertas fora do lançamento)
 UPSELLS = [   # upsell NÃO entra no CAC (só vendas de captação contam lá); entra no Faturamento Total
@@ -711,6 +714,16 @@ def load_cert():
     pais_col = next((c for c in cert.columns if _norm_pais(c) in ("pais","country","pais do comprador")), None)
     cert["ps"] = cert[pais_col].apply(pais_code) if pais_col else ""
     cert["of"] = g_on(cert,col,"Offer Code").astype(str).str.strip().str.lower()
+    # ── Vendas manuais (fora do relatório Hotmart) ──
+    if CERT_VENDAS_EXTRAS:
+        extras = []
+        for ex in CERT_VENDAS_EXTRAS:
+            for _ in range(int(ex.get("qtd",1))):
+                extras.append({"date": pd.to_datetime(ex["data"], dayfirst=True),
+                               "Produto": PRODUTO_CERT["nome"],
+                               "_email": "", "ps": ex.get("ps",""), "of": ex.get("oferta","manual")})
+        cert = pd.concat([cert, pd.DataFrame(extras)], ignore_index=True)
+        print(f"  Cert: +{len(extras)} venda(s) manual(is) (CERT_VENDAS_EXTRAS)")
     # ── colunas do cruzamento manual na aba (cliente): código de origem da captação + Pago/Org/VSL/Não encontrado ──
     col_cod = next((c for c in cert.columns if "code origem" in c.lower()), None)
     col_o4  = next((c for c in cert.columns if "origem paga" in c.lower()), None)
@@ -906,6 +919,7 @@ def inject_all(tpl, meta_k, meta_d, meta_dc, meta_raw_c, meta_t, meta_bd, hot_k,
     html=replace_js_const(html,"PRODUTO_CAPTACAO", PRODUTOS_HOTMART[0] if PRODUTOS_HOTMART and PRODUTOS_HOTMART!=["ALL"] else None)
     html=replace_js_const(html,"CRIAT_LINKS",  criat_links)
     html=replace_js_const(html,"META_INVEST",  META_INVEST)
+    html=replace_js_const(html,"CERT_NOTA",    CERT_NOTA)
     html=replace_js_const(html,"UPSELLS_RAW",  ups_raw)
     html=replace_js_const(html,"PESQUISA", pes if USAR_PESQUISA else False)
     html=replace_js_const(html,"TICKET_MEDIO", ticket)
