@@ -281,6 +281,8 @@ td.g-utm,th.g-utm{background:rgba(217,119,6,.06);}
   .seg-card{overflow-x:auto!important;}
   .daily-side{flex-direction:row;gap:12px;border-right:none;border-bottom:1px solid var(--border);}
 }
+.cfp{font-size:10px;padding:5px 10px;border:1px solid var(--border);border-radius:99px;background:var(--surface);color:var(--muted);cursor:pointer;font-weight:600}
+.cfp.on{background:#0f172a;color:#fff;border-color:#0f172a}
 </style>
 </head>
 <body>
@@ -453,27 +455,27 @@ td.g-utm,th.g-utm{background:rgba(217,119,6,.06);}
         <div class="cc-t">Vendas por Dia</div>
         <div style="height:210px;position:relative"><canvas id="ch_cert_dia"></canvas></div>
       </div>
-      <div class="g2">
+      <div class="g2" id="certG2Orig">
         <div class="cc">
           <div class="cc-t">Vendas por Origem</div>
           <div class="cc-s">vendas com base na origem de captação (análise por código de compra na captura)</div>
           <div style="height:230px;position:relative"><canvas id="ch_cert_orig"></canvas></div>
         </div>
-        <div class="cc">
-          <div class="cc-t">Vendas por Código × Origem</div>
-          <div class="cc-s">código da oferta de captação do comprador</div>
-          <div id="tCertCodigos" style="overflow-x:auto"></div>
+        <div class="cc" id="cardQFCert" style="display:none">
+          <div class="cc-t">Quente × Frio</div>
+          <div class="cc-s">com base nos leads identificados via UTM (campanha Hot/Cold)</div>
+          <div style="height:230px;position:relative"><canvas id="ch_qf_cert"></canvas></div>
         </div>
       </div>
-      <div class="cc" id="cardQFCert" style="display:none;margin-bottom:14px">
-        <div class="cc-t">Quente × Frio</div>
-        <div class="cc-s">com base nos leads identificados via UTM (campanha Hot/Cold)</div>
-        <div style="height:230px;position:relative"><canvas id="ch_qf_cert"></canvas></div>
+      <div class="cc" style="margin-bottom:14px">
+        <div class="cc-t">Vendas por Código × Origem</div>
+        <div class="cc-s">código da oferta de captação do comprador</div>
+        <div id="tCertCodigos" style="overflow-x:auto"></div>
       </div>
       <div class="cc" style="margin-bottom:14px">
         <div class="cc-t">Origem Detalhada (SCK da captura)</div>
         <div class="cc-s">base preenchida na aba hotmart-CertificacionELF</div>
-        <div class="utm-grid" id="certUtmGrid"></div>
+        <div class="utm-grid" id="certUtmGrid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))"></div>
       </div>
       <div class="cc" style="margin-bottom:14px">
         <div class="cc-t">Vendas por País</div>
@@ -497,6 +499,15 @@ td.g-utm,th.g-utm{background:rgba(217,119,6,.06);}
         <div id="tCertOfertas" style="overflow-x:auto"></div>
       </div>
       <div class="cc" style="margin-bottom:14px">
+        <div id="certFiltroBar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px">
+          <input id="certFTxtInp" placeholder="Filtrar campanha, conjunto ou criativo…" oninput="certFTxtChange(this)"
+                 style="flex:1;min-width:180px;max-width:340px;font-size:11px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+          <div style="display:flex;gap:4px">
+            <button class="cfp on" onclick="setCertFTemp('',this)">Todas</button>
+            <button class="cfp" onclick="setCertFTemp('HOT',this)">🔥 Quente</button>
+            <button class="cfp" onclick="setCertFTemp('COLD',this)">❄️ Frio</button>
+          </div>
+        </div>
         <div class="cc-t">Criativos — Performance (utm_content)</div>
         <div class="cc-s">investimento × faturamento Captação + Certificación</div>
         <div id="tCertCriativos" style="overflow-x:auto"></div>
@@ -686,6 +697,7 @@ const I18N={
   'Quente × Frio':'Caliente × Frío','Quente':'Caliente','Frio':'Frío','Não identificado':'No identificado',
   'Análise por País':'Análisis por País','Campanhas e Conjuntos':'Campañas y Conjuntos','Campanha / Conjunto':'Campaña / Conjunto',
   'Faturamento':'Facturación','Faturamento / Invest.':'Facturación / Invers.',
+  '🔥 Quente':'🔥 Caliente','❄️ Frio':'❄️ Frío','Sem resultados para o filtro':'Sin resultados para el filtro',
   'Sem país':'Sin país','MixPaíses':'MixPaíses',
   'com upsells':'con upsells','Captação + Cert + Upsell':'Captación + Cert + Upsell',
   'investimento filtrado a nível de campanha · vendas atribuídas pela UTM (inclui truncadas)':'inversión filtrada a nivel de campaña · ventas atribuidas por la UTM (incluye truncadas)',
@@ -1590,6 +1602,21 @@ function bucketDoComprador(ps, buckets){
   if(multi) return multi;                                        // bucket multi-país que cobre o país
   return label;                                                  // país sem campanha própria (invest. 0)
 }
+let certFTxt='', certFTemp='', _certFTmr=null;
+function _certFPlace(){
+  const i=document.getElementById('certFTxtInp');
+  if(i&&LANG==='es') i.placeholder='Filtrar campaña, conjunto o creativo…';
+}
+function certFTxtChange(inp){
+  clearTimeout(_certFTmr);
+  _certFTmr=setTimeout(()=>{certFTxt=inp.value||'';renderCert();},180);
+}
+function setCertFTemp(v,el){
+  certFTemp=v||'';
+  document.querySelectorAll('#certFiltroBar .cfp').forEach(b=>b.classList.remove('on'));
+  if(el) el.classList.add('on');
+  renderCert();
+}
 let paisAtual=null;
 function setPaisAn(p){paisAtual=p;renderPaisAn();}
 function renderPaisAn(){
@@ -1841,6 +1868,7 @@ function renderGeral(){
   </table>`;
 }
 function renderCert(){
+  _certFPlace();
   if(!CERT||!Array.isArray(CERT_RAW)) return;
   const hoje=getHoje();
   const inPer=d=>{
@@ -1957,6 +1985,8 @@ function renderCert(){
           tooltip:{callbacks:{label:c=>' '+c.label+': '+pieLbl(c.parsed,{dataset:{data:c.dataset.data}})}}}}});
   })();
   renderPieQF('qf_cert','ch_qf_cert','cardQFCert',rows,metaNameSets());
+  (function(){const g=document.getElementById('certG2Orig'),c=document.getElementById('cardQFCert');
+    if(g&&c) g.style.gridTemplateColumns=(c.style.display==='none')?'1fr':'';})();
   // ── Performance por UTM de tráfego: Invest × Fat.Captação × Fat.Cert × ROAS ──
   (function(){
     const S=metaNameSets();
@@ -1973,17 +2003,21 @@ function renderCert(){
       const el=document.getElementById(nv.el); if(!el) return;
       const agg={};
       const put=(k)=>agg[k]=agg[k]||{k,capN:0,capV:0,ceN:0,ceV:0};
+      const _tok=s=>{const T=String(s||'').toUpperCase().split(/[^A-Z0-9]+/);return T.includes('HOT')?'HOT':(T.includes('COLD')?'COLD':'');};
+      const _temp=r=>_tok(r.ut)||_tok(r.uc)||_tok(r.um)||_tok(r.uco);
       capRows.forEach(r=>{
+        if(certFTemp&&_temp(r)!==certFTemp) return;
         const k=resolveIn(normUtm(r[nv.key]||''), nv.nomes);
         if(!k) return;
         const b=put(k); b.capN++; b.capV=r2(b.capV+(r.v||0));
       });
       rows.forEach(r=>{
+        if(certFTemp&&_temp(r)!==certFTemp) return;
         const k=resolveIn(normUtm(r[nv.key]||''), nv.nomes);
         if(!k) return;
         const b=put(k); b.ceN++; b.ceV=r2(b.ceV+V);
       });
-      const lista=Object.values(agg).map(b=>{
+      let lista=Object.values(agg).map(b=>{
         b.nome=nv.nomes.get(b.k)||b.k;
         b.inv=nv.spend[b.k]!=null?nv.spend[b.k]:null;
         b.tot=r2(b.capV+b.ceV);
@@ -1994,7 +2028,9 @@ function renderCert(){
         if(a.inv==null) return 1; if(b.inv==null) return -1;
         return b.inv-a.inv;
       });
-      if(!lista.length){el.innerHTML='<div style="padding:10px;font-size:11px;color:var(--muted)">Sem vendas com nomenclatura de tráfego</div>';return;}
+      const _ftxt=normUtm(certFTxt||'');
+      if(_ftxt) lista=lista.filter(b=>normUtm(b.nome).includes(_ftxt));
+      if(!lista.length){el.innerHTML='<div style="padding:10px;font-size:11px;color:var(--muted)">'+((certFTxt||certFTemp)?'Sem resultados para o filtro':'Sem vendas com nomenclatura de tráfego')+'</div>';return;}
       const T={inv:0,capN:0,capV:0,ceN:0,ceV:0,tot:0};
       lista.forEach(b=>{T.inv=r2(T.inv+(b.inv||0));T.capN+=b.capN;T.capV=r2(T.capV+b.capV);T.ceN+=b.ceN;T.ceV=r2(T.ceV+b.ceV);T.tot=r2(T.tot+b.tot);});
       const troas=T.inv>0&&T.tot>0?r2(T.tot/T.inv):null;
