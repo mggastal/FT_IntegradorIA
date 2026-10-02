@@ -467,6 +467,14 @@ td.g-utm,th.g-utm{background:rgba(217,119,6,.06);}
           <div style="height:230px;position:relative"><canvas id="ch_qf_cert"></canvas></div>
         </div>
       </div>
+      <div class="cc" id="cardConvEntrada" style="display:none;margin-bottom:14px">
+        <div class="cc-t">Conversão por Produto de Entrada</div>
+        <div class="cc-s">de todos que compraram cada ingresso, quantos viraram Certificación (compradores únicos)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">
+          <div id="tConvEntrada" style="overflow-x:auto"></div>
+          <div style="height:220px;position:relative"><canvas id="ch_conv_ent"></canvas></div>
+        </div>
+      </div>
       <div class="cc" style="margin-bottom:14px">
         <div class="cc-t">Vendas por Código × Origem</div>
         <div class="cc-s">código da oferta de captação do comprador</div>
@@ -604,6 +612,7 @@ const PRODUTO_CAPTACAO = null;
 const CRIAT_LINKS   = null;
 const META_INVEST   = null;
 const CERT_NOTA     = null;
+const CERT_CONV_ENTRADA = null;
 const PESQUISA     = null;
 const TICKET_MEDIO     = null;
 
@@ -698,6 +707,7 @@ const I18N={
   'Análise por País':'Análisis por País','Campanhas e Conjuntos':'Campañas y Conjuntos','Campanha / Conjunto':'Campaña / Conjunto',
   'Faturamento':'Facturación','Faturamento / Invest.':'Facturación / Invers.',
   '🔥 Quente':'🔥 Caliente','❄️ Frio':'❄️ Frío','Sem resultados para o filtro':'Sin resultados para el filtro',
+  'Conversão por Produto de Entrada':'Conversión por Producto de Entrada','de todos que compraram cada ingresso, quantos viraram Certificación (compradores únicos)':'de todos los que compraron cada ingreso, cuántos se convirtieron en Certificación (compradores únicos)','Produto de entrada':'Producto de entrada','Compradores':'Compradores','Taxa de conversão':'Tasa de conversión','% das vendas':'% de las ventas','Sem captação identificada':'Sin captación identificada',
   'Sem país':'Sin país','MixPaíses':'MixPaíses',
   'com upsells':'con upsells','Captação + Cert + Upsell':'Captación + Cert + Upsell',
   'investimento filtrado a nível de campanha · vendas atribuídas pela UTM (inclui truncadas)':'inversión filtrada a nivel de campaña · ventas atribuidas por la UTM (incluye truncadas)',
@@ -836,7 +846,8 @@ const CPM_BOM=5.0;
 const CPM_MEDIO=10.0;
 
 // ═══ ESTADO ═══
-let filtroLct=true, periodDays=30, dateI=null, dateF=null, showLabels=true, labelSize=8;
+const PERIOD_DEFAULT = 30;   // período inicial: 1, 7, 14, 30 ou 0 (Tudo) — injetado pelo gerador
+let filtroLct=true, periodDays=(typeof PERIOD_DEFAULT==='number'?PERIOD_DEFAULT:30), dateI=null, dateF=null, showLabels=true, labelSize=8;
 let ovGran='dia', metaGran='dia', diaGran='dia';
 let metaCampSel=new Set(); // filtro de campanhas da página Meta Ads (vazio = todas)
 
@@ -1902,6 +1913,46 @@ function renderCert(){
     <div class="kpi" style="--kc:#f97316"><div class="kpi-lbl">Vendas</div><div class="kpi-val" style="color:#f97316">${fN(n)}</div><div class="kpi-sub">${CERT.ap}</div></div>
     <div class="kpi" style="--kc:#059669"><div class="kpi-lbl">Faturamento</div><div class="kpi-val" style="font-size:16px;color:#059669">${fR(fat)}</div><div class="kpi-sub">${fN(n)} × ${fR(V)}</div></div>
     <div class="kpi" style="--kc:#3b82f6"><div class="kpi-lbl">Taxa de Conversão</div><div class="kpi-val" style="color:#3b82f6">${txConv!=null?txConv.toFixed(2)+'%':'—'}</div><div class="kpi-sub">${fN(n)} / ${fN(capTot)} captados</div></div>`;
+  (function(){
+    const card=document.getElementById('cardConvEntrada'); if(!card) return;
+    if(!Array.isArray(CERT_CONV_ENTRADA)||!CERT_CONV_ENTRADA.length){card.style.display='none';return;}
+    card.style.display='';
+    const mono="font-size:10px;text-align:right;padding:5px 9px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border)";
+    const thx=l=>`<th style="font-size:8px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:5px 9px;text-align:right">${l}</th>`;
+    const TT=typeof t==='function'?t:(s=>s);
+    const totC=CERT_CONV_ENTRADA.reduce((s,c)=>s+(c.c||0),0);
+    document.getElementById('tConvEntrada').innerHTML=`<table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--surface2)">
+        <th style="font-size:8px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:5px 9px;text-align:left">Produto de entrada</th>
+        ${thx('Compradores')}${thx('→ Certificación')}${thx('% das vendas')}${thx('Taxa de conversão')}
+      </tr></thead><tbody>
+      ${CERT_CONV_ENTRADA.map(c=>`<tr>
+        <td style="font-size:10px;padding:5px 9px;border-bottom:1px solid var(--border);font-weight:600">${TT(c.p)}</td>
+        <td style="${mono}">${c.base!=null?fN(c.base):'—'}</td>
+        <td style="${mono};color:#f97316;font-weight:700">${fN(c.c)}</td>
+        <td style="${mono}">${totC>0?(c.c/totC*100).toFixed(1).replace('.',',')+'%':'—'}</td>
+        <td style="${mono};font-weight:700;color:${c.pct!=null?(c.pct>=5?'#059669':'#d97706'):'var(--muted)'}">${c.pct!=null?c.pct.toFixed(2).replace('.',',')+'%':'—'}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr style="background:var(--surface2)">
+        <td style="font-size:10px;padding:5px 9px;font-weight:800">TOTAL</td>
+        <td style="${mono};font-weight:800">${fN(CERT_CONV_ENTRADA.reduce((s,c)=>s+(c.base||0),0))}</td>
+        <td style="${mono};font-weight:800;color:#f97316">${fN(totC)}</td>
+        <td style="${mono};font-weight:800">100%</td><td style="${mono}">—</td>
+      </tr></tfoot></table>`;
+    // pizza: participação das vendas da Certificación por produto de entrada
+    if(CH['conv_ent']){try{CH['conv_ent'].destroy();}catch(e){}}
+    const cv=document.getElementById('ch_conv_ent');
+    if(cv&&window.Chart){
+      const cores=['#8b5cf6','#0ea5e9','#94a3b8','#f59e0b','#10b981'];
+      CH['conv_ent']=new Chart(cv,{type:'pie',
+        data:{labels:CERT_CONV_ENTRADA.map(c=>TT(c.p)),datasets:[{data:CERT_CONV_ENTRADA.map(c=>c.c),backgroundColor:CERT_CONV_ENTRADA.map((c,i)=>cores[i%cores.length]),borderWidth:0}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:10,padding:8}},
+            datalabels:{display:ctx=>showLabels&&ctx.dataset.data[ctx.dataIndex]>0,color:'#fff',font:{size:labelSize+1,weight:'bold'},
+              formatter:(v,ctx)=>{const t=ctx.dataset.data.reduce((a,b)=>a+b,0);return v+' ('+(t?Math.round(v/t*100):0)+'%)';}},
+            tooltip:{callbacks:{label:c=>{const t=c.dataset.data.reduce((a,b)=>a+b,0);return ' '+c.label+': '+c.parsed+' ('+(t?(c.parsed/t*100).toFixed(1):0)+'%)';}}}}}});
+    }
+  })();
   document.getElementById('certNota')?.remove();
   if(typeof CERT_NOTA==='string'&&CERT_NOTA){
     const n=document.createElement('div'); n.id='certNota';
@@ -2016,6 +2067,14 @@ function renderCert(){
         const k=resolveIn(normUtm(r[nv.key]||''), nv.nomes);
         if(!k) return;
         const b=put(k); b.ceN++; b.ceV=r2(b.ceV+V);
+      });
+      // Semeia TODAS as linhas com investimento (mesmo sem venda) — o total de invest. fecha
+      Object.keys(nv.spend||{}).forEach(k=>{
+        if(certFTemp){
+          const nome=(nv.nomes.get&&nv.nomes.get(k))||k;
+          if(_tok(nome)!==certFTemp) return;   // sob 🔥/❄️: só linhas do lado escolhido
+        }
+        put(k);
       });
       let lista=Object.values(agg).map(b=>{
         b.nome=nv.nomes.get(b.k)||b.k;
@@ -3563,6 +3622,16 @@ window.addEventListener('resize', ajustarPaddingContent);
     try{ if(typeof self[n]==='function') self[n]=wrap(self[n]); }catch(e){}
   });
   if(LANG==='es'){try{translateAll();}catch(e){}}
+})();
+
+// período inicial ≠ 30d → move a marcação do botão
+(function(){
+  const mapa={'1':'Ontem','7':'7d','14':'14d','30':'30d','0':'Tudo'};
+  const alvo=mapa[String(periodDays)];
+  if(!alvo||alvo==='30d') return;
+  document.querySelectorAll('.period-bar .pb').forEach(b=>{
+    b.classList.toggle('active', b.textContent.trim()===alvo||b.textContent.trim()===t(alvo));
+  });
 })();
 </script>
 </body>
