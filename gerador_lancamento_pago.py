@@ -772,7 +772,7 @@ def load_cert():
             j2 = jorn.get(r["_email"])
             if j2 and j2.get("utms"): utms = dict(j2["utms"])
         _prod_ent = (jorn.get(r["_email"]) or {}).get("prod","")
-        _conv_cert.setdefault(_prod_ent, set()).add(r["_email"])
+        _conv_cert[_prod_ent] = _conv_cert.get(_prod_ent, 0) + 1
         if org=="Pago": n_pago+=1
         elif org=="Orgânico": n_org+=1
         rows.append({"d":r["date"].strftime("%d/%m"),"ps":str(r["ps"] or ""),
@@ -788,14 +788,15 @@ def load_cert():
     print(f"        origem: {n_base} pela base da aba · {n_jorn} pela jornada (e-mail) · cobertura {cob:.0f}%")
     # ── Conversão por produto de entrada (compradores únicos) ──
     _bases = {}
-    for _em,_j in jorn.items():
-        if _j.get("prod"): _bases[_j["prod"]] = _bases.get(_j["prod"],0)+1
+    if _DF_HOT_ALL is not None:
+        _vc = _DF_HOT_ALL[_DF_HOT_ALL["Produto"].isin(PRODUTOS_HOTMART)]["Produto"].value_counts()
+        _bases = {str(k): int(v) for k,v in _vc.items()}
     conv_entrada = []
     for _p,_b in sorted(_bases.items(), key=lambda x:-x[1]):
-        _c = len(_conv_cert.get(_p,set()))
+        _c = int(_conv_cert.get(_p,0))
         conv_entrada.append({"p":_p.replace("Alta Demanda: ","").strip(),"base":_b,"c":_c,
                              "pct": round(_c/_b*100,2) if _b else None})
-    _sem = len(_conv_cert.get("",set()))
+    _sem = int(_conv_cert.get("",0))
     if _sem: conv_entrada.append({"p":"Sem captação identificada","base":None,"c":_sem,"pct":None})
     global CERT_CONV_ENTRADA_DATA
     CERT_CONV_ENTRADA_DATA = conv_entrada
@@ -876,6 +877,17 @@ def load_regiao():
         print(f"  Aviso regiao: {e}"); return []
 
 # ══ PESQUISA ══════════════════════════════════════════
+def _cert_buyer_emails():
+    """Set de e-mails (norm) dos compradores do produto principal — p/ cruzar com a Pesquisa."""
+    if not PRODUTO_CERT: return set()
+    try:
+        dfc = pd.read_csv(URL_CERT)
+        colc = next((c for c in dfc.columns if "buyer email" in c.lower()), None)
+        if not colc: return set()
+        return set(dfc[colc].dropna().astype(str).str.strip().str.lower())
+    except Exception:
+        return set()
+
 def load_pesquisa():
     print("  Lendo pesquisa..."); return pd.read_csv(URL_PES)
 
@@ -900,6 +912,7 @@ def pesquisa_process(df, hot_qtd):
                and not c.lower().startswith("unnamed")
                and pd.api.types.is_string_dtype(df[c])  # aceita str e object
                and _pergunta_valida(c)]
+    PERGUNTAS=[c for c in PERGUNTAS if "comprador" not in c.lower()]
     graficos=[]
     for p in PERGUNTAS:
         if p not in df.columns: continue
@@ -909,11 +922,35 @@ def pesquisa_process(df, hot_qtd):
     for col in UTM_COLS:
         if col in df.columns:
             filtros[col]=sorted([v for v in df[col].dropna().unique().tolist() if v and str(v)!="nan"])
+    # ── Comprador do produto final (cruzamento por e-mail; e-mails NÃO vão para o HTML) ──
+    FILTRO_COMPRADOR = "Comprador Certificación"
+    # coluna manual na aba (ex.: "Comprador") tem prioridade — permite correção caso a caso
+    _comp_vals = None
+    _colman = next((c for c in df.columns if "comprador" in c.lower() and df[c].nunique(dropna=True) <= 4), None)
+    if _colman is not None:
+        _comp_vals = df[_colman].astype(str).where(df[_colman].notna(), None)
+        filtros[FILTRO_COMPRADOR] = sorted({str(v) for v in df[_colman].dropna().unique()})
+        _vc = df[_colman].value_counts()
+        print(f"  Pesquisa: filtro Comprador pela coluna manual '{_colman}' ({_vc.to_dict()})")
+    _cemails = None if _comp_vals is not None else _cert_buyer_emails()
+    _colmail = None
+    if _cemails:
+        for c in df.columns:
+            vals = df[c].dropna().astype(str)
+            if len(vals) and vals.str.contains("@").mean() > 0.3:
+                _colmail = c; break
+    _comprador = None
+    if _cemails and _colmail:
+        _comprador = df[_colmail].astype(str).str.strip().str.lower().isin(_cemails)
+        filtros[FILTRO_COMPRADOR] = ["Sí","No"]
+        print(f"  Pesquisa: {int(_comprador.sum())} respondente(s) compraram a Certificación")
     rows=[]
     for _,r in df.iterrows():
         row={}
         for p in PERGUNTAS: row[p]=str(r[p]) if p in df.columns and pd.notna(r.get(p)) else None
         for col in UTM_COLS: row[col]=str(r[col]) if col in df.columns and pd.notna(r.get(col)) else None
+        if _comp_vals is not None: row[FILTRO_COMPRADOR]=_comp_vals.iloc[_]
+        elif _comprador is not None: row[FILTRO_COMPRADOR]="Sí" if bool(_comprador.iloc[_]) else "No"
         rows.append(row)
     return {"total":len(df),"hot_qtd":int(hot_qtd),"graficos":graficos,"filtros":filtros,"rows":rows,"perguntas":PERGUNTAS}
 
