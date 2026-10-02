@@ -42,6 +42,8 @@ VALOR_FIXO       = None
 VALOR_POR_PRODUTO = {"Alta Demanda: Acceso VIP": 29, "Alta Demanda: Acceso General": 10}
 # META_INVEST: meta de investimento do lançamento (mostra % no KPI). None = sem meta.
 META_INVEST      = 10000   # meta de investimento do lançamento
+# Período inicial do dashboard: 1, 7, 14, 30 ou 0 (Tudo). Lançamento encerrado → 0.
+PERIODO_PADRAO   = 30
 MOEDA_SIMBOLO    = "$"             # símbolo exibido no dashboard (ex: "$", "US$", "R$")
 FONTE_LABEL      = "Hotmart"       # rótulo sob o KPI de Vendas
 NOTA_RECEITA     = "* Receita e ROAS: valor fixo por produto (VIP $29 · General $10)"
@@ -612,6 +614,7 @@ def meta_breakdowns(df):
 
 # ══ Classificação de origem compartilhada (Cert + Upsells) ══
 _JORN_CACHE = None
+CERT_CONV_ENTRADA_DATA = None
 def _lado_txt(t):
     for l in (LADOS_COMPARATIVO or []):
         if any(tk.upper() in t for tk in l["tokens"]): return l["nome"]
@@ -674,8 +677,15 @@ def _jornada_acceso():
         for _,r in ev.iterrows():
             em = r["_email"]
             if not em or em=="nan": continue
-            j = jorn.setdefault(em, {"pago":False,"lado":""})
+            j = jorn.setdefault(em, {"pago":False,"lado":"","utms":None,"prod":""})
+            if not j["prod"]: j["prod"] = str(r.get("Produto",""))
             if r["oferta"] in pago_set: j["pago"] = True
+            d0 = parse_sck(r["_sck"])
+            u0 = {"us":d0.get("source",""),"um":d0.get("medium",""),"uc":d0.get("campaign",""),
+                  "uco":d0.get("content",""),"ut":d0.get("term","")}
+            # guarda as UTMs mais ricas da jornada (prioriza SCK com campanha identificada)
+            if any(u0.values()) and (j["utms"] is None or (u0["uc"] and not (j["utms"] or {}).get("uc"))):
+                j["utms"] = u0
             if not j["lado"]:
                 d = parse_sck(r["_sck"])
                 j["lado"] = _lado_txt(" ".join(str(v) for v in d.values()).upper())
@@ -745,6 +755,7 @@ def load_cert():
     jorn = _jornada_acceso()
 
     rows=[]; n_base=n_jorn=n_sem=0; n_pago=n_org=0
+    _conv_cert = {}
     for _,r in cert.iterrows():
         org,lado,utms = _class_sck(r[org_col]) if org_col else ("","",{"us":"","um":"","uc":"","uco":"","ut":""})
         if org:
@@ -756,6 +767,12 @@ def load_cert():
                 lado = lado or j["lado"]; n_jorn+=1
             else:
                 n_sem+=1
+        # sem UTM própria → herda as UTMs da CAPTAÇÃO do comprador (atribuição pela origem de entrada)
+        if not any(utms.values()):
+            j2 = jorn.get(r["_email"])
+            if j2 and j2.get("utms"): utms = dict(j2["utms"])
+        _prod_ent = (jorn.get(r["_email"]) or {}).get("prod","")
+        _conv_cert.setdefault(_prod_ent, set()).add(r["_email"])
         if org=="Pago": n_pago+=1
         elif org=="Orgânico": n_org+=1
         rows.append({"d":r["date"].strftime("%d/%m"),"ps":str(r["ps"] or ""),
@@ -769,6 +786,19 @@ def load_cert():
     _d4=_C(r["o4"] for r in rows)
     print(f"        cruzamento da aba: " + " · ".join(f"{k} {v}" for k,v in _d4.most_common()))
     print(f"        origem: {n_base} pela base da aba · {n_jorn} pela jornada (e-mail) · cobertura {cob:.0f}%")
+    # ── Conversão por produto de entrada (compradores únicos) ──
+    _bases = {}
+    for _em,_j in jorn.items():
+        if _j.get("prod"): _bases[_j["prod"]] = _bases.get(_j["prod"],0)+1
+    conv_entrada = []
+    for _p,_b in sorted(_bases.items(), key=lambda x:-x[1]):
+        _c = len(_conv_cert.get(_p,set()))
+        conv_entrada.append({"p":_p.replace("Alta Demanda: ","").strip(),"base":_b,"c":_c,
+                             "pct": round(_c/_b*100,2) if _b else None})
+    _sem = len(_conv_cert.get("",set()))
+    if _sem: conv_entrada.append({"p":"Sem captação identificada","base":None,"c":_sem,"pct":None})
+    global CERT_CONV_ENTRADA_DATA
+    CERT_CONV_ENTRADA_DATA = conv_entrada
     return info, rows
 
 # ══ UPSELLS (por código de oferta) ═══════════════════════
@@ -919,7 +949,9 @@ def inject_all(tpl, meta_k, meta_d, meta_dc, meta_raw_c, meta_t, meta_bd, hot_k,
     html=replace_js_const(html,"PRODUTO_CAPTACAO", PRODUTOS_HOTMART[0] if PRODUTOS_HOTMART and PRODUTOS_HOTMART!=["ALL"] else None)
     html=replace_js_const(html,"CRIAT_LINKS",  criat_links)
     html=replace_js_const(html,"META_INVEST",  META_INVEST)
+    html=replace_js_const(html,"PERIOD_DEFAULT", PERIODO_PADRAO)
     html=replace_js_const(html,"CERT_NOTA",    CERT_NOTA)
+    html=replace_js_const(html,"CERT_CONV_ENTRADA", CERT_CONV_ENTRADA_DATA)
     html=replace_js_const(html,"UPSELLS_RAW",  ups_raw)
     html=replace_js_const(html,"PESQUISA", pes if USAR_PESQUISA else False)
     html=replace_js_const(html,"TICKET_MEDIO", ticket)
