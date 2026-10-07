@@ -122,11 +122,14 @@ def to_num(s):
 def safe(v):
     if v is None or (isinstance(v,float) and pd.isna(v)): return None
     return round(float(v),2) if float(v)!=0 else None
-def download_thumb(url, d):
+def download_thumb(url, d, chave=None):
+    """Baixa a miniatura do criativo. O nome do arquivo vem da CHAVE (nome do anúncio), não da URL:
+    as URLs do Meta trazem assinatura que muda a cada consulta, e nomear pela URL criava arquivos
+    novos a cada execução (a pasta imgs chegou a 36 mil arquivos)."""
     if not url or str(url)=="nan": return ""
     try:
         ext=".png" if ".png" in url.lower() else ".jpg"
-        fname=hashlib.md5(url.encode()).hexdigest()[:16]+ext
+        fname=hashlib.md5(str(chave or url).encode()).hexdigest()[:16]+ext
         fp=d/fname
         if not fp.exists():
             r=requests.get(url,timeout=10,headers={"User-Agent":"Mozilla/5.0"})
@@ -492,7 +495,7 @@ def meta_tables_period(df, p, img_dir, ticket):
     for _,r in df_full_thumb.iterrows():
         k=(str(r["ad"]),str(r["adset"]),str(r["campaign"]))
         if k not in thumb_map:
-            thumb_map[k]=download_thumb(str(r["thumb"]),img_dir)
+            thumb_map[k]=download_thumb(str(r["thumb"]),img_dir,chave=str(r["ad"]))
 
     def make_ads(sub):
         # Agregar métricas do período, buscar thumb do mapa completo
@@ -1102,6 +1105,12 @@ def main():
     criat_links=load_criativos_links()
     html=inject_all(TEMPLATE_FILE,m_k,m_d,m_dc,m_raw,m_t,m_bd,hot_k,hot_d,h_raw,regiao_raw,cert_info,cert_raw,ups_info,ups_raw,criat_links,pes,ticket)
     Path(OUTPUT_FILE).write_text(html,encoding="utf-8")
+    # limpa imgs/: apaga miniaturas que o dashboard não usa mais (o workflow commita as remoções)
+    usadas=set(re.findall(r'imgs/([0-9a-f]{16}\.(?:jpg|png))',html))
+    if usadas:
+        sobras=[f for f in img_dir.iterdir() if f.is_file() and f.name not in usadas]
+        for f in sobras: f.unlink()
+        print(f"  ✓ imgs/: {len(usadas)} em uso · {len(sobras)} antigas apagadas")
     print(f"  ✓ {OUTPUT_FILE} ({len(html)//1024}KB)")
 
     data_json={"cliente":NOME_CLIENTE,"cor":COR_ACENTO,"letra":LOGO_LETRA,
