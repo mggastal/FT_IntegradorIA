@@ -615,6 +615,7 @@ def meta_breakdowns(df):
 # ══ Classificação de origem compartilhada (Cert + Upsells) ══
 _JORN_CACHE = None
 CERT_CONV_ENTRADA_DATA = None
+CERT_CONV_ORIGEM_DATA = None
 def _lado_txt(t):
     for l in (LADOS_COMPARATIVO or []):
         if any(tk.upper() in t for tk in l["tokens"]): return l["nome"]
@@ -692,6 +693,27 @@ def _jornada_acceso():
     _JORN_CACHE = jorn
     return jorn
 
+def _cod_captacao(cert, col):
+    """Código da oferta de captação de cada comprador da Certificación: busca pelo e-mail e, se não
+    achar, pelo nome (mesma regra da fórmula da coluna "Organico ou Pago"). Prioriza código pago."""
+    if _DF_HOT_ALL is None: return ""
+    cap = _DF_HOT_ALL[_DF_HOT_ALL["Produto"].isin(PRODUTOS_HOTMART)]
+    colC = {c.replace("Sales History ","").strip(): c for c in cap.columns}
+    ofc  = g_on(cap,colC,"Offer Code").astype(str).str.strip().str.lower()
+    nmc  = g_on(cap,colC,"Buyer Name").astype(str).str.strip().str.lower()
+    pago_set = {o.lower() for o in OFERTAS_PAGO}
+    por_em, por_nm = {}, {}
+    for em, nm, of in zip(cap["_email"], nmc, ofc):
+        if of in ("","nan"): continue
+        if em and em!="nan": por_em.setdefault(em, []).append(of)
+        if nm and nm!="nan": por_nm.setdefault(nm, []).append(of)
+    nomes = g_on(cert,col,"Buyer Name").astype(str).str.strip().str.lower()
+    def escolhe(lst):
+        if not lst: return ""
+        pg = [o for o in lst if o in pago_set]
+        return (pg or lst)[0]
+    return [escolhe(por_em.get(em) or por_nm.get(nm) or []) for em, nm in zip(cert["_email"], nomes)]
+
 # ══ PRODUTO PRINCIPAL (Certificación) — atribuição por jornada ══
 def load_cert():
     """Vendas do produto principal. Origem/destino: 1º pela coluna de origem preenchida na aba
@@ -737,6 +759,8 @@ def load_cert():
     # ── colunas do cruzamento manual na aba (cliente): código de origem da captação + Pago/Org/VSL/Não encontrado ──
     col_cod = next((c for c in cert.columns if "code origem" in c.lower()), None)
     col_o4  = next((c for c in cert.columns if "origem paga" in c.lower()), None)
+    # coluna "Organico ou Pago" (cruzamento por e-mail/nome com a captação) → só p/ o painel Conversão por Origem
+    col_oq  = next((c for c in cert.columns if "organico" in _norm_pais(c) and "pago" in _norm_pais(c)), None)
     def _map_o4(v):
         t = str(v or "").strip().lower()
         if not t or t=="nan": return "Não encontrado"
@@ -744,9 +768,12 @@ def load_cert():
         if t.startswith("org"):  return "Orgânico"
         if "vsl" in t:           return "VSL"
         return "Não encontrado"
-    cert["cod"] = (cert[col_cod].apply(lambda v: "" if str(v).strip().lower() in ("","nan","none") else str(v).strip().lower())
-                   if col_cod else "")
+    if col_cod:
+        cert["cod"] = cert[col_cod].apply(lambda v: "" if str(v).strip().lower() in ("","nan","none") else str(v).strip().lower())
+    else:   # sem coluna de código na aba → código de captação do comprador (e-mail → nome)
+        cert["cod"] = _cod_captacao(cert, col)
     cert["o4"]  = (cert[col_o4].apply(_map_o4) if col_o4 else "Não encontrado")
+    cert["oq"]  = (cert[col_oq].apply(_map_o4) if col_oq else "")
     # coluna de origem manual = última coluna "...Tracking Source SCK*" (a duplicada vira SCK.1)
     sck_cols = [c for c in cert.columns if c.startswith("Sales History Tracking Source SCK")]
     org_col = sck_cols[-1] if sck_cols else None
@@ -777,7 +804,7 @@ def load_cert():
         elif org=="Orgânico": n_org+=1
         rows.append({"d":r["date"].strftime("%d/%m"),"ps":str(r["ps"] or ""),
                      "of":str(r["of"]),"org":org,"lado":lado,
-                     "cod":str(r["cod"] or ""),"o4":str(r["o4"]), **utms})
+                     "cod":str(r["cod"] or ""),"o4":str(r["o4"]),"oq":str(r["oq"] or ""), **utms})
     info={"nome":PRODUTO_CERT["nome"],"ap":PRODUTO_CERT["apelido"],"valor":float(PRODUTO_CERT["valor"])}
     cob=(n_base+n_jorn)/len(rows)*100 if rows else 0
     info["cobertura"]=round(cob)
@@ -800,6 +827,22 @@ def load_cert():
     if _sem: conv_entrada.append({"p":"Sem captação identificada","base":None,"c":_sem,"pct":None})
     global CERT_CONV_ENTRADA_DATA
     CERT_CONV_ENTRADA_DATA = conv_entrada
+    # ── Conversão por ORIGEM (coluna "Organico ou Pago" da aba) × vendas da captação pela mesma origem ──
+    global CERT_CONV_ORIGEM_DATA
+    if col_oq and _DF_HOT_ALL is not None:
+        cap = _DF_HOT_ALL[_DF_HOT_ALL["Produto"].isin(PRODUTOS_HOTMART)]
+        colC = {c.replace("Sales History ","").strip(): c for c in cap.columns}
+        ofc = g_on(cap,colC,"Offer Code").astype(str).str.strip().str.lower()
+        pago_set = {o.lower() for o in OFERTAS_PAGO}
+        base = {"Pago": int(ofc.isin(pago_set).sum()), "Orgânico": int((~ofc.isin(pago_set)).sum())}
+        cnt = _C(r["oq"] for r in rows)
+        conv = [{"o":o,"base":base[o],"c":int(cnt.get(o,0)),
+                 "pct": round(cnt.get(o,0)/base[o]*100,2) if base[o] else None} for o in ("Pago","Orgânico")]
+        for o in ("VSL","Não encontrado"):
+            if cnt.get(o): conv.append({"o":o,"base":None,"c":int(cnt[o]),"pct":None})
+        CERT_CONV_ORIGEM_DATA = conv
+        print("        conversão por origem: " + " · ".join(
+            f"{x['o']} {x['c']}/{x['base']} ({x['pct']}%)" if x["base"] else f"{x['o']} {x['c']}" for x in conv))
     return info, rows
 
 # ══ UPSELLS (por código de oferta) ═══════════════════════
@@ -989,6 +1032,7 @@ def inject_all(tpl, meta_k, meta_d, meta_dc, meta_raw_c, meta_t, meta_bd, hot_k,
     html=replace_js_const(html,"PERIOD_DEFAULT", PERIODO_PADRAO)
     html=replace_js_const(html,"CERT_NOTA",    CERT_NOTA)
     html=replace_js_const(html,"CERT_CONV_ENTRADA", CERT_CONV_ENTRADA_DATA)
+    html=replace_js_const(html,"CERT_CONV_ORIGEM", CERT_CONV_ORIGEM_DATA)
     html=replace_js_const(html,"UPSELLS_RAW",  ups_raw)
     html=replace_js_const(html,"PESQUISA", pes if USAR_PESQUISA else False)
     html=replace_js_const(html,"TICKET_MEDIO", ticket)

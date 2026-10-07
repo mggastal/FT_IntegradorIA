@@ -236,6 +236,7 @@ td.g-utm,th.g-utm{background:rgba(217,119,6,.06);}
 .pl-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);}
 .pl-pct{font-family:'DM Mono',monospace;font-weight:700;font-size:10px;}
 
+@media(max-width:900px){.conv-orig-grid{grid-template-columns:1fr!important;}}
 /* PESQUISA FILTROS */
 .pes-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
 .filter-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px;box-shadow:var(--sh);}
@@ -467,6 +468,14 @@ td.g-utm,th.g-utm{background:rgba(217,119,6,.06);}
           <div style="height:230px;position:relative"><canvas id="ch_qf_cert"></canvas></div>
         </div>
       </div>
+      <div class="cc" id="cardConvOrigem" style="display:none;margin-bottom:14px">
+        <div class="cc-t">Conversão por Origem</div>
+        <div class="cc-s">vendas da captação por origem (código da oferta) × compradores da Certificación pela mesma origem (coluna Organico ou Pago) · lançamento completo</div>
+        <div class="conv-orig-grid" style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:center">
+          <div id="tConvOrigem" style="overflow-x:auto"></div>
+          <div style="height:200px;position:relative"><canvas id="ch_conv_orig"></canvas></div>
+        </div>
+      </div>
       <div class="cc" id="cardConvEntrada" style="display:none;margin-bottom:14px">
         <div class="cc-t">Conversão por Produto de Entrada</div>
         <div class="cc-s">das vendas de cada ingresso, quantas viraram Certificación — mesmo critério da tabela Ventas por Producto</div>
@@ -613,6 +622,7 @@ const CRIAT_LINKS   = null;
 const META_INVEST   = null;
 const CERT_NOTA     = null;
 const CERT_CONV_ENTRADA = null;
+const CERT_CONV_ORIGEM = null;
 const PESQUISA     = null;
 const TICKET_MEDIO     = null;
 
@@ -674,6 +684,10 @@ const I18N={
   'Gênero':'Género','Faixa Etária':'Rango de Edad','Posicionamento':'Ubicación','Anúncios':'Anuncios','Anúncio':'Anuncio',
   'CAMPANHA':'CAMPAÑA','CLIQUES':'CLICS','Cliques':'Clics','RECEITA*':'INGRESOS*','Receita*':'Ingresos*','Receita':'Ingresos','TOTAL':'TOTAL','Conjunto':'Conjunto',
   'Faturamento':'Facturación','Fat.':'Fact.','Valor':'Valor',
+  'Conversão por Origem':'Conversión por Origen','Vendas captação':'Ventas captación','Vendas Cert.':'Ventas Cert.',
+  'Conversão':'Conversión','Total com captação':'Total con captación','Pago':'Pago',
+  'vendas da captação por origem (código da oferta) × compradores da Certificación pela mesma origem (coluna Organico ou Pago) · lançamento completo':'ventas de captación por origen (código de oferta) × compradores de la Certificación por el mismo origen (columna Organico ou Pago) · lanzamiento completo',
+  'Conversão = vendas da Certificación ÷ vendas da captação da mesma origem · "Não encontrado": comprador sem compra de captação (e-mail e nome) · total de vendas Cert.:':'Conversión = ventas de la Certificación ÷ ventas de captación del mismo origen · "No encontrado": comprador sin compra de captación (e-mail y nombre) · total de ventas Cert.:',
   'Sem vendas no período':'Sin ventas en el período','Sem dados no período':'Sin datos en el período','Sem dados':'Sin datos',
   '* Receita e ROAS: Action Value Omni Purchase do Meta (atribuição)':'* Ingresos y ROAS: Action Value Omni Purchase de Meta (atribución)',
   // Diário / filtros
@@ -1960,11 +1974,56 @@ function renderCert(){
     n.textContent=CERT_NOTA;
     document.getElementById('certKpis').after(n);
   }
+  // ── Conversão por Origem: captação (código da oferta) → Certificación (coluna Organico ou Pago) ──
+  (function(){
+    const card=document.getElementById('cardConvOrigem'); if(!card) return;
+    const D=CERT_CONV_ORIGEM;
+    if(!Array.isArray(D)||!D.length){card.style.display='none';return;}
+    card.style.display='';
+    const COR={'Pago':'#059669','Orgânico':'#3b82f6','VSL':'#f59e0b','Não encontrado':'#94a3b8'};
+    const mono="font-size:10px;text-align:right;padding:5px 9px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap";
+    const thx=(l,c)=>`<th style="font-size:8px;text-transform:uppercase;letter-spacing:.6px;color:${c||'var(--muted)'};font-weight:700;padding:5px 9px;text-align:right;white-space:nowrap">${t(l)}</th>`;
+    const pc=v=>v==null?'—':v.toFixed(2)+'%';
+    const comBase=D.filter(x=>x.base!=null), semBase=D.filter(x=>x.base==null);
+    const bT=comBase.reduce((a,x)=>a+x.base,0), cT=comBase.reduce((a,x)=>a+x.c,0), cAll=D.reduce((a,x)=>a+x.c,0);
+    const linha=(x,extra)=>`<tr${extra||''}>
+      <td style="font-size:11px;padding:5px 9px;border-bottom:1px solid var(--border)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COR[x.o]||'#94a3b8'};margin-right:6px"></span>${t(x.o)}</td>
+      <td style="${mono}">${x.base!=null?fN(x.base):'—'}</td>
+      <td style="${mono};font-weight:700">${fN(x.c)}</td>
+      <td style="${mono};font-weight:800;color:${x.pct!=null?(COR[x.o]||'inherit'):'var(--muted2)'}">${pc(x.pct)}</td>
+      <td style="${mono};color:#059669">${fR(r2(x.c*V))}</td></tr>`;
+    document.getElementById('tConvOrigem').innerHTML=`<table style="width:100%;border-collapse:collapse;min-width:420px">
+      <thead><tr style="background:var(--surface2)">
+        <th style="font-size:8px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:5px 9px;text-align:left">${t('Origem')}</th>
+        ${thx('Vendas captação')}${thx('Vendas Cert.','#f97316')}${thx('Conversão','#3b82f6')}${thx('Fat.','#059669')}
+      </tr></thead><tbody>
+      ${comBase.map(x=>linha(x)).join('')}
+      <tr style="background:var(--surface2);font-weight:700">
+        <td style="font-size:9px;padding:6px 9px;color:var(--muted2);text-transform:uppercase;border-bottom:1px solid var(--border)">${t('Total com captação')}</td>
+        <td style="${mono}">${fN(bT)}</td><td style="${mono};font-weight:800">${fN(cT)}</td>
+        <td style="${mono};font-weight:800">${pc(bT?cT/bT*100:null)}</td><td style="${mono};color:#059669">${fR(r2(cT*V))}</td></tr>
+      ${semBase.map(x=>linha(x,' style="color:var(--muted)"')).join('')}
+      </tbody>
+      <tfoot><tr><td colspan="5" style="padding:5px 9px;font-size:9px;color:var(--muted2)">${t('Conversão = vendas da Certificación ÷ vendas da captação da mesma origem · "Não encontrado": comprador sem compra de captação (e-mail e nome) · total de vendas Cert.:')} ${fN(cAll)}</td></tr></tfoot>
+    </table>`;
+    if(CH['conv_orig']){try{CH['conv_orig'].destroy();}catch(e){}}
+    const cv=document.getElementById('ch_conv_orig');
+    if(cv&&window.Chart){
+      CH['conv_orig']=new Chart(cv,{type:'bar',
+        data:{labels:comBase.map(x=>t(x.o)),datasets:[{data:comBase.map(x=>x.pct||0),backgroundColor:comBase.map(x=>COR[x.o]),borderRadius:4,borderSkipped:'start',barPercentage:.6}]},
+        options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:90}},
+          scales:{x:{beginAtZero:true,ticks:{font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,.05)'}},y:{grid:{display:false},ticks:{font:{size:11,weight:'bold'}}}},
+          plugins:{legend:{display:false},
+            datalabels:{display:()=>showLabels,anchor:'end',align:'end',offset:4,clip:false,color:'#475569',font:{size:labelSize+1,weight:'bold'},
+              formatter:(v,ctx)=>{const x=comBase[ctx.dataIndex];return v.toFixed(2)+'%  ('+fN(x.c)+'/'+fN(x.base)+')';}},
+            tooltip:{callbacks:{label:c=>{const x=comBase[c.dataIndex];return ' '+fN(x.c)+' de '+fN(x.base)+' = '+pc(x.pct);}}}}}});
+    }
+  })();
   // ── Pizza: Vendas por Origem (cruzamento manual da aba) ──
   const O4=['Pago','Orgânico','VSL','Não encontrado'];
   const O4C={'Pago':'#059669','Orgânico':'#3b82f6','VSL':'#f59e0b','Não encontrado':'#94a3b8'};
   const cnt4={};
-  rows.forEach(r=>{const k=O4.includes(r.o4)?r.o4:'Não encontrado';cnt4[k]=(cnt4[k]||0)+1;});
+  rows.forEach(r=>{const oo=r.oq||r.o4;const k=O4.includes(oo)?oo:'Não encontrado';cnt4[k]=(cnt4[k]||0)+1;});
   const l4=O4.filter(k=>cnt4[k]);
   const pieLbl=(v,ctx)=>{const tot=ctx.dataset.data.reduce((a,b)=>a+b,0);return tot?fN(v)+' · '+r2(v/tot*100).toFixed(1)+'%':fN(v);};
   if(CH['cert_orig']){try{CH['cert_orig'].destroy();}catch(e){}}
@@ -1983,7 +2042,8 @@ function renderCert(){
     rows.forEach(r=>{
       const k=(r.cod||'').trim()||'(sem código)';
       const b=map[k]=map[k]||{cod:k,Pago:0,'Orgânico':0,VSL:0,'Não encontrado':0,tot:0};
-      const o=O4.includes(r.o4)?r.o4:'Não encontrado';
+      const oo=r.oq||r.o4;   // coluna "Organico ou Pago" da aba, quando existir
+      const o=O4.includes(oo)?oo:'Não encontrado';
       b[o]++; b.tot++;
     });
     const rws=Object.values(map).sort((a,b)=>{if(a.cod==='(sem código)')return 1;if(b.cod==='(sem código)')return -1;return b.tot-a.tot;});
