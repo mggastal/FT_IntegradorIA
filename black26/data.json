@@ -1,0 +1,21 @@
+{
+  "cliente": "Black Friday 26 · Integrador IA",
+  "cor": "#252F26",
+  "letra": "BF",
+  "lancamentos": [
+    "Black 26",
+    "EUA",
+    "ARG-CHL",
+    "CHL",
+    "ECU-PER",
+    "Mix Países"
+  ],
+  "moeda": "USD",
+  "moeda_simbolo": "$",
+  "atualizado": "09/11/2026",
+  "kpis": {
+    "spend": 355.07,
+    "leads": 64,
+    "cpl": 5.55
+  }
+}
