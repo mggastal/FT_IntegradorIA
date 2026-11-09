@@ -115,6 +115,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
 .g73{display:grid;grid-template-columns:7fr 3fr;gap:12px;margin-bottom:14px;}
+.g55{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.dist-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.dist-tbl{width:100%;border-collapse:collapse;border-top:1px solid var(--border);margin-top:8px}
+.dist-tbl th{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:5px 0 4px 6px;text-align:right}
+.dist-tbl th:first-child{text-align:left;padding-left:0}
+.dist-tbl td{font-family:'DM Mono',monospace;font-size:10.5px;padding:5px 0 5px 6px;text-align:right;border-top:1px solid var(--border)}
+.dist-tbl td:first-child{font-family:'DM Sans',sans-serif;font-weight:600;text-align:left;padding-left:0;white-space:nowrap}
+.dist-tbl tr.tot td{font-weight:700}
 .mb14{margin-bottom:14px;}
 
 /* MÉTRICAS DIÁRIAS */
@@ -212,7 +220,7 @@ details.desk-only{display:block!important;}
   .content{padding:12px;}
   .main{max-width:100vw;}
   .k5,.k4,.k3{grid-template-columns:repeat(2,1fr);}
-  .g2,.g3,.g73{grid-template-columns:1fr;}
+  .g2,.g3,.g73,.g55,.dist-grid{grid-template-columns:1fr;}
   .pizza-grid{grid-template-columns:1fr;}
   .tc{overflow-x:auto;}
   .utm-groups{grid-template-columns:1fr;}
@@ -439,13 +447,18 @@ details.desk-only{display:block!important;}
         </summary>
         <div style="padding:0 14px 12px;" id="metaCampFilter"></div>
       </details>
-      <div class="krow k3 mb14" id="metaKpis"></div>
-      <div class="g73">
+      <div class="krow k4 mb14" id="metaKpis"></div>
+      <div class="g55">
         <div class="funnel-card" style="margin-bottom:0"><div class="funnel-title" data-i18n="funil_ttl">Funil de Captação</div><div class="funnel-steps" id="funnelSteps"></div></div>
-        <div class="cc" id="tempCard" style="display:flex;flex-direction:column;gap:10px;">
-          <div class="cc-t" data-i18n="temp_ttl">Temperatura</div>
-          <div class="cw" style="height:140px;flex-shrink:0"><canvas id="chTemp"></canvas></div>
-          <div id="tempTable"></div>
+        <div class="cc" id="distCard" style="margin-bottom:0">
+          <div class="cc-t" id="distTtl">Distribuição do Investimento</div>
+          <div class="cc-s" id="distSub" style="margin-bottom:10px"></div>
+          <div class="dist-grid">
+            <div><div style="font-size:11px;font-weight:700;margin-bottom:6px" id="distTempTtl">Quente × Frio</div><div class="cw" style="height:170px"><canvas id="chDistTemp"></canvas></div></div>
+            <div><div style="font-size:11px;font-weight:700;margin-bottom:6px" id="distPaisTtl">Por País</div><div class="cw" style="height:170px"><canvas id="chDistPais"></canvas></div></div>
+          </div>
+          <div id="distTempTbl" style="margin-top:6px"></div>
+          <div id="distPaisTbl" style="margin-top:6px"></div>
         </div>
       </div>
       <div style="margin-bottom:14px"></div>
@@ -653,6 +666,8 @@ const COMPARATIVO = null;
 // ═══ CONFIG (injetados pelo gerador) ═══
 const LANCAMENTO_CODS = null;
 const NOME_CLIENTE='Sergio Cripto';
+const META_INVEST = null;
+const META_GASTO_TOTAL = null;
 const LOGO_LETRA='SC';
 const COR_ACENTO='#B8860B';
 const MOEDA_SIMBOLO='€';
@@ -1329,7 +1344,7 @@ function renderMeta(){
   document.getElementById('metaKpis').innerHTML=`
     <div class="kpi" style="--kc:#334155"><div class="kpi-lbl">${t('kpi_invest')}</div><div class="kpi-val" style="font-size:16px;color:var(--text)">${fR(spMK)}</div><div class="kpi-sub">Meta Ads</div></div>
     <div class="kpi" style="--kc:#3b82f6"><div class="kpi-lbl">${t('kpi_leads')}</div><div class="kpi-val" style="color:var(--text)">${fN(ldMK)}</div><div class="kpi-sub">${t('kpi_cap')}</div></div>
-    <div class="kpi" style="--kc:${cplCor}"><div class="kpi-lbl">${t('kpi_cpl')}</div><div class="kpi-val" style="color:${cplCor}">${cplMK!=null?fR(cplMK):'—'}</div><div class="kpi-sub">${t('kpi_cpl_sub')}</div></div>`;
+    <div class="kpi" style="--kc:${cplCor}"><div class="kpi-lbl">${t('kpi_cpl')}</div><div class="kpi-val" style="color:${cplCor}">${cplMK!=null?fR(cplMK):'—'}</div><div class="kpi-sub">${t('kpi_cpl_sub')}</div></div>`+metaInvestKpi();
 
   const funnelKpis={
     impressions: md.impressions?.reduce((a,b)=>a+(b||0),0)||0,
@@ -1344,7 +1359,7 @@ function renderMeta(){
   funnelKpis.tx_conv=pv2>0?r2(ld2/pv2*100):null;
   funnelKpis.cpl=ld2>0?r2(spMK/ld2):null;
   setTimeout(()=>buildFunnel(funnelKpis),30);
-  setTimeout(()=>buildTemp(calcTempFromRaw()||getMK()?.temp),30);
+  setTimeout(buildDist,30);
 
   dc('chMetaMain');
   CH['chMetaMain']=new Chart(document.getElementById('chMetaMain'),{
@@ -1379,6 +1394,83 @@ function getPeriodKey(){
 
 // Temperatura (Quente = -TT-, Frio = -TF- no nome da campanha) recalculada pelo
 // META_RAW_CAMP, respeitando lançamento, período, datas e filtro de campanha.
+// ═══ META DE INVESTIMENTO (total do Black, não depende dos filtros) ═══
+function metaInvestKpi(){
+  if(!META_INVEST) return '';
+  const es=currentLang==='ES';
+  const g=META_GASTO_TOTAL||0, pct=g/META_INVEST*100;
+  const cor=pct>=100?'#dc2626':pct>=80?'#d97706':'#059669';
+  return `<div class="kpi" style="--kc:${cor}"><div class="kpi-lbl">${es?'Meta de inversión':'Meta de investimento'}</div>
+    <div class="kpi-val" style="color:${cor}">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</div>
+    <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;margin:4px 0 5px"><div style="height:100%;width:${Math.min(pct,100)}%;background:${cor}"></div></div>
+    <div class="kpi-sub">${fR(g)} ${es?'de':'de'} ${fR(META_INVEST)} · ${es?'falta':'faltam'} ${fR(Math.max(META_INVEST-g,0))} (${es?'total Black':'total do Black'})</div></div>`;
+}
+
+// ═══ DISTRIBUIÇÃO DO INVESTIMENTO (quente/frio e país, lidos da nomenclatura) ═══
+const DIST_PAL=['#3b82f6','#059669','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#64748b','#ef4444'];
+function distTemp(c){
+  const u=String(c).toUpperCase();
+  if(/-(HOT|QUENTE|TT)-/.test(u)) return 'q';
+  if(/-(COLD|FRIO|TF)-/.test(u)) return 'f';
+  return 'o';
+}
+function distPais(c){
+  const m=String(c).toUpperCase().match(/CADASTRO-(.+?)-(HOT|COLD|FRIO|QUENTE|TT|TF)-/);
+  if(!m) return currentLang==='ES'?'Otros':'Outros';
+  const p=m[1];
+  if(p.replace(/-/g,'')==='MIXPAISES') return currentLang==='ES'?'Mix Países':'Mix Países';
+  return p;
+}
+function calcDist(){
+  if(!META_RAW_CAMP?.length) return null;
+  const hoje=getHoje();
+  const fim=new Date(hoje); if(periodDays===1) fim.setDate(fim.getDate()-1); fim.setHours(23,59,59,999);
+  const ini=new Date(fim); ini.setDate(ini.getDate()-(periodDays===1?0:periodDays-1)); ini.setHours(0,0,0,0);
+  const temp={}, pais={};
+  META_RAW_CAMP.forEach(r=>{
+    if(filtroAtivo!=='all' && !(r.codes||[]).includes(filtroAtivo)) return;
+    if(metaCampSel?.size>0 && !metaCampSel.has(r.c)) return;
+    const dt=parseDayStr(r.d);
+    if(periodDays>0 && (dt<ini||dt>fim)) return;
+    if(dateI&&dt<dateI) return;
+    if(dateF&&dt>dateF) return;
+    for(const [obj,k] of [[temp,distTemp(r.c)],[pais,distPais(r.c)]]){
+      obj[k]=obj[k]||{spend:0,leads:0}; obj[k].spend+=r.sp||0; obj[k].leads+=r.ld||0;
+    }
+  });
+  return {temp,pais};
+}
+function buildDist(){
+  const es=currentLang==='ES';
+  document.getElementById('distTtl').textContent=es?'Distribución de la Inversión':'Distribuição do Investimento';
+  document.getElementById('distSub').textContent=es?'% de la inversión en el gráfico · compare con el % de leads en la tabla':'% do investimento no gráfico · compare com o % de leads na tabela';
+  document.getElementById('distTempTtl').textContent=es?'Caliente × Frío':'Quente × Frio';
+  document.getElementById('distPaisTtl').textContent=es?'Por País':'Por País';
+  const d=calcDist(); if(!d) return;
+  const TL={q:es?'Caliente':'Quente',f:es?'Frío':'Frio',o:es?'Sin clasificar':'Sem classificação'};
+  const TC={q:'#ea580c',f:'#93c5fd',o:'#94a3b8'};
+  const temps=['q','f','o'].filter(k=>d.temp[k]).map(k=>({n:TL[k],col:TC[k],...d.temp[k]}));
+  const paises=Object.entries(d.pais).sort((a,b)=>b[1].spend-a[1].spend).map(([n,v],i)=>({n,col:DIST_PAL[i%DIST_PAL.length],...v}));
+  drawDist('chDistTemp','distTempTbl',temps,es);
+  drawDist('chDistPais','distPaisTbl',paises,es);
+}
+function drawDist(cid,tid,items,es){
+  const sp=items.reduce((a,b)=>a+b.spend,0), ld=items.reduce((a,b)=>a+b.leads,0);
+  dc(cid);
+  CH[cid]=new Chart(document.getElementById(cid),{type:'doughnut',
+    data:{labels:items.map(i=>i.n),datasets:[{data:items.map(i=>r2(i.spend)),backgroundColor:items.map(i=>i.col),borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+      plugins:{legend:{position:'bottom',labels:{color:TXT(),font:bf,boxWidth:9,padding:6}},
+        tooltip:{callbacks:{label:c=>c.label+': '+fR(c.raw)+' ('+(sp>0?(c.raw/sp*100).toFixed(1):0)+'%)'}},
+        datalabels:{display:c=>sp>0&&c.dataset.data[c.dataIndex]/sp>=0.04,color:'#fff',font:{size:11,weight:'bold'},formatter:v=>sp>0?(v/sp*100).toFixed(0)+'%':null}}}});
+  const pc=(v,t)=>t>0?(v/t*100).toFixed(1)+'%':'—';
+  const cplc=c=>c==null?'':c<=CPL_BOM?'cg':c<=CPL_MEDIO?'cw2':'cr';
+  const row=(i,cls)=>{const cpl=i.leads>0?r2(i.spend/i.leads):null;
+    return `<tr class="${cls||''}"><td>${i.col?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${i.col};margin-right:5px"></span>`:''}${i.n}</td><td>${fR(i.spend)}</td><td>${pc(i.spend,sp)}</td><td>${fN(i.leads)}</td><td>${pc(i.leads,ld)}</td><td class="${cplc(cpl)}">${cpl!=null?fR(cpl):'—'}</td></tr>`;};
+  document.getElementById(tid).innerHTML=`<table class="dist-tbl"><thead><tr><th>${tid==='distTempTbl'?(es?'Temperatura':'Temperatura'):(es?'País':'País')}</th><th>${es?'Inversión':'Invest.'}</th><th>% Inv.</th><th>Leads</th><th>% Leads</th><th>CPL</th></tr></thead><tbody>
+    ${items.map(i=>row(i)).join('')}${items.length>1?row({n:'Total',spend:sp,leads:ld},'tot'):''}</tbody></table>`;
+}
+
 function calcTempFromRaw(){
   if(!META_RAW_CAMP?.length) return null;
   const hoje=getHoje();

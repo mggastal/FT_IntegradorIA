@@ -28,6 +28,7 @@ COR_ACENTO       = "#252F26"
 LANCAMENTO_CODS  = [('Black 26', 'BLACK-IA-NOV-26'), ('EUA', 'CADASTRO-EUA'), ('ARG-CHL', 'CADASTRO-ARG-CHL'), ('CHL', 'CADASTRO-CHL'), ('ECU-PER', 'CADASTRO-ECU-PER'), ('Mix Países', 'CADASTRO-MIXPAISES')]
 # Só entram campanhas com este termo no nome (o resto da planilha é do lançamento pago)
 CAMPANHA_BASE    = "BLACK-IA-NOV-26"
+META_INVEST      = 3000    # meta de investimento do Black (US$); o card mostra o % já investido
 USAR_PESQUISA    = False           # False = oculta aba Pesquisa
 USAR_VENDAS      = False
 USAR_CRIPUB      = True            # aba "Criativos & Públicos" (soma por nome entre campanhas)
@@ -962,6 +963,8 @@ def main():
     if not Path(TEMPLATE_FILE).exists():
         print(f"  ERRO: {TEMPLATE_FILE} não encontrado"); return
     html=inject_all(TEMPLATE_FILE,m_k,m_d,m_dc,m_raw,m_t,m_bd,pes,lpv_data,vendas_data,cripub,build_comparativo(df_meta))
+    html=replace_js_const(html,"META_INVEST",META_INVEST)
+    html=replace_js_const(html,"META_GASTO_TOTAL",round(float(df_meta["spend"].sum()),2))
     Path(OUTPUT_FILE).write_text(html,encoding="utf-8")
     print(f"  ✓ {OUTPUT_FILE} ({len(html)//1024}KB)")
 
