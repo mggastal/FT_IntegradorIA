@@ -115,8 +115,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
 .g73{display:grid;grid-template-columns:7fr 3fr;gap:12px;margin-bottom:14px;}
-.g55{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
-.dist-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.g55{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:14px;}
+.dist-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;}
+.g55>*,.dist-grid>*{min-width:0;}
+.dist-grid .cw{position:relative;width:100%;overflow:hidden;}
 .dist-tbl{width:100%;border-collapse:collapse;border-top:1px solid var(--border);margin-top:8px}
 .dist-tbl th{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:5px 0 4px 6px;text-align:right}
 .dist-tbl th:first-child{text-align:left;padding-left:0}
@@ -1454,6 +1456,8 @@ function buildDist(){
   drawDist('chDistTemp','distTempTbl',temps,es);
   drawDist('chDistPais','distPaisTbl',paises,es);
 }
+let _distRz=null;
+window.addEventListener('resize',()=>{clearTimeout(_distRz);_distRz=setTimeout(()=>{if(document.getElementById('distCard'))buildDist();},150);});
 function drawDist(cid,tid,items,es){
   const sp=items.reduce((a,b)=>a+b.spend,0), ld=items.reduce((a,b)=>a+b.leads,0);
   dc(cid);
