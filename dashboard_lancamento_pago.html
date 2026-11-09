@@ -33,6 +33,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .sb-lct-lbl{font-size:9px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
 .sb-lct-val{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff;}
 .sb-footer{padding:10px 16px;border-top:1px solid rgba(255,255,255,.05);}
+.sb-links{padding:8px 8px 10px;border-top:1px solid rgba(255,255,255,.06);}
+.sb-links-lbl{font-size:9px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;padding:2px 10px 6px;}
+.sb-links a{text-decoration:none;}
 .sb-footer span{font-size:10px;color:rgba(255,255,255,.25);}
 
 /* TOPBAR — sticky obrigatório */
@@ -305,6 +308,13 @@ td.g-utm,th.g-utm{background:rgba(217,119,6,.06);}
     <button class="sb-item" id="sbGeral" style="display:none" onclick="goPage('geral',this)"><span class="ico">🏁</span>Geral</button>
     <button class="sb-item" id="sbPesquisa" onclick="goPage('pesquisa',this)"><span class="ico">🔍</span>Pesquisa</button>
   </nav>
+  <div class="sb-links">
+    <div class="sb-links-lbl">Outras visões</div>
+    <a class="sb-item" href="black26/" data-href="black26/"><span class="ico">🖤</span>Dash Black 26</a>
+    <a class="sb-item" href="CERTIF-IA-SET_2026.html" data-href="CERTIF-IA-SET_2026.html"><span class="ico">🗂️</span>Lançamento Set/26</a>
+    <a class="sb-item" href="./" data-href="./"><span class="ico">🏠</span>Dash atual</a>
+  </div>
+  <script>(function(){var f=location.pathname.split('/').pop();document.querySelectorAll('.sb-links a').forEach(function(a){var h=a.getAttribute('data-href');if((h==='./'&&(f===''||f==='index.html'))||h===f)a.style.display='none';});})();</script>
   <div class="sb-lct"><div class="sb-lct-lbl">Lançamento</div><div class="sb-lct-val" id="sbLct">—</div></div>
   <div class="sb-footer"><span id="sbAtual">--/--/---- · via planilha</span></div>
 </aside>
