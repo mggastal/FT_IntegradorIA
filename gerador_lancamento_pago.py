@@ -43,7 +43,7 @@ VALOR_POR_PRODUTO = {"Alta Demanda: Acceso VIP": 29, "Alta Demanda: Acceso Gener
 # META_INVEST: meta de investimento do lançamento (mostra % no KPI). None = sem meta.
 META_INVEST      = 10000   # meta de investimento do lançamento
 # Período inicial do dashboard: 1, 7, 14, 30 ou 0 (Tudo). Lançamento encerrado → 0.
-PERIODO_PADRAO   = 30
+PERIODO_PADRAO   = 0 
 MOEDA_SIMBOLO    = "$"             # símbolo exibido no dashboard (ex: "$", "US$", "R$")
 FONTE_LABEL      = "Hotmart"       # rótulo sob o KPI de Vendas
 NOTA_RECEITA     = "* Receita e ROAS: valor fixo por produto (VIP $29 · General $10)"
