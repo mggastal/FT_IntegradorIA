@@ -863,6 +863,9 @@ const TRANSLATIONS = {
     vd_ticket_sub:    'receita / vendas',
     vd_cac_sub:       'custo por venda',
     vd_note_ttl:      'Sobre a atribuição:',
+    vd_note_semutm:   'a Hotmart não traz a UTM destas vendas, então elas não abrem por campanha, público ou criativo. O ROAS e o custo por venda usam todo o investimento da captação Black.',
+    vd_cpv:           'Custo por Venda',
+    vd_cpv_sub:       'investimento ÷ vendas · ticket',
     vd_note_1:        'as vendas com UTM deste lançamento somam',
     vd_note_2:        'e podem ser abertas por campanha, público, criativo e LP. Outras',
     vd_note_3:        'vêm de compradores já cadastrados (o CRM não sobrescreve a UTM antiga) ou sem origem registrada — entram na receita e no ROAS, mas não nas quebras abaixo.',
@@ -1051,6 +1054,9 @@ const TRANSLATIONS = {
     vd_ticket_sub:    'ingresos / ventas',
     vd_cac_sub:       'costo por venta',
     vd_note_ttl:      'Sobre la atribución:',
+    vd_note_semutm:   'Hotmart no trae la UTM de estas ventas, así que no se desglosan por campaña, público o creativo. El ROAS y el costo por venta usan toda la inversión de la captación Black.',
+    vd_cpv:           'Costo por Venta',
+    vd_cpv_sub:       'inversión ÷ ventas · ticket',
     vd_note_1:        'las ventas con UTM de este lanzamiento suman',
     vd_note_2:        'y pueden desglosarse por campaña, público, creativo y LP. Otras',
     vd_note_3:        'provienen de compradores ya registrados (el CRM no sobrescribe la UTM anterior) o sin origen registrado — entran en los ingresos y en el ROAS, pero no en los desgloses de abajo.',
@@ -2663,10 +2669,16 @@ function renderVendas(){
      '<div class="kpi" style="--kc:#059669"><div class="kpi-lbl">'+t('vd_receita')+'</div><div class="kpi-val" style="color:#059669">'+fR(T.receita)+'</div><div class="kpi-sub">'+t('vd_receita_sub')+'</div></div>'
     +'<div class="kpi" style="--kc:#0369a1"><div class="kpi-lbl">'+t('vd_col_vendas')+'</div><div class="kpi-val" style="color:#0369a1">'+fN(T.vendas)+'</div><div class="kpi-sub">'+t('vd_vendas_sub')+'</div></div>'
     +'<div class="kpi" style="--kc:'+rcolor+'"><div class="kpi-lbl">ROAS</div><div class="kpi-val" style="color:'+rcolor+'">'+fRoas(T.roas)+'</div><div class="kpi-sub">'+fR(T.invest)+' '+t('vd_roas_sub')+'</div></div>'
-    +'<div class="kpi" style="--kc:#d97706"><div class="kpi-lbl">'+t('vd_ticket')+'</div><div class="kpi-val" style="color:#d97706">'+fR(T.ticket)+'</div><div class="kpi-sub">'+t('vd_ticket_sub')+'</div></div>';
+    +'<div class="kpi" style="--kc:#d97706"><div class="kpi-lbl">'+t('vd_cpv')+'</div><div class="kpi-val" style="color:#d97706">'+fR(T.cac)+'</div><div class="kpi-sub">'+t('vd_cpv_sub')+' '+fR(T.ticket)+'</div></div>';
 
   // ─ Nota de atribuição ─
-  document.getElementById('vdNote').innerHTML=
+  const semUtm=!T.vendas_atrib;
+  ['vdLpTbl','vdCampTbl','vdPubTbl','vdCriTbl','vdOutrasTbl'].forEach(function(id){
+    const el=document.getElementById(id); if(!el) return;
+    el.style.display=semUtm?'none':''; const hd=el.previousElementSibling; if(hd) hd.style.display=semUtm?'none':'';
+  });
+  if(semUtm){ document.getElementById('vdNote').innerHTML='<b>'+t('vd_note_ttl')+'</b> '+t('vd_note_semutm'); }
+  else document.getElementById('vdNote').innerHTML=
     '<b>'+t('vd_note_ttl')+'</b> '+t('vd_note_1')
     +' <b>'+fR(T.receita_atrib)+'</b> ('+T.vendas_atrib+' '+t('vd_vendas_txt')+') '+t('vd_note_2')
     +' <b>'+fR(T.receita_outras)+'</b> ('+T.vendas_outras+') '+t('vd_note_3');

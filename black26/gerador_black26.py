@@ -30,7 +30,7 @@ LANCAMENTO_CODS  = [('Black 26', 'BLACK-IA-NOV-26'), ('EUA', 'CADASTRO-EUA'), ('
 CAMPANHA_BASE    = "BLACK-IA-NOV-26"
 META_INVEST      = 3000    # meta de investimento do Black (US$); o card mostra o % já investido
 USAR_PESQUISA    = False           # False = oculta aba Pesquisa
-USAR_VENDAS      = False
+USAR_VENDAS      = True
 USAR_CRIPUB      = True            # aba "Criativos & Públicos" (soma por nome entre campanhas)
 # Aba "Comparar": lançamentos da mesma série lado a lado (labels de LANCAMENTO_CODS). None = oculta
 COMPARATIVO      = None
@@ -101,11 +101,19 @@ URL_PES  = sheet_url("Pesquisa")
 URL_GA   = sheet_url("breakdown-gender-age")
 URL_PT   = sheet_url("breakdown-platform")
 ABA_VENDAS = "Vendas VSL"          # aba da planilha com as vendas
-MOSTRAR_VENDAS = False       # True para exibir a página/menu "Vendas" quando as vendas começarem
+MOSTRAR_VENDAS = True        # True para exibir a página/menu "Vendas" quando as vendas começarem
 DATA_MINIMA = "01/11/2026"   # Black 26 começou em nov/26
                              # como o dashboard usa datas dd/mm, a partir de 22/09/2026 os dias de 2025
                              # colidiriam com os de 2026 e inflariam os filtros (mesmo bug já visto na Rafa).
 URL_VENDAS = sheet_url(ABA_VENDAS)
+# ── Vendas da Black (Hotmart) ──
+# A extração Hotmart do Stract traz a conta inteira (Lancemos Agency LLC) só na planilha do Infinity,
+# por isso os dois dashs Black leem a aba "hotmart" de lá e filtram pelo nome do produto.
+VENDAS_HOTMART_SHEET = "1oL-nT38uS-lWN0aYpfLHGuxzUM18PFxIZVM7OxIKeag"
+VENDAS_PRODUTO   = 'Black PRO'
+VENDAS_VALOR_FIXO = 597      # ticket fixo em US$ (a coluna Price da Hotmart vem na moeda local)
+VENDAS_FUSO_H    = 0          # Order Date do Stract vem em Brasília; ajuste para o fuso da conta de anúncios
+VENDAS_STATUS_OK = ("APPROVED", "COMPLETE")
 
 def to_num(s):
     if pd.api.types.is_numeric_dtype(s): return s.fillna(0)
@@ -588,6 +596,26 @@ def pesquisa_process(df, total_leads):
 # VENDAS
 # ══════════════════════════════════════════════════════
 def load_vendas():
+    print("  Lendo Vendas (Hotmart)...")
+    url = f"https://docs.google.com/spreadsheets/d/{VENDAS_HOTMART_SHEET}/gviz/tq?tqx=out:csv&sheet=hotmart"
+    h = pd.read_csv(url, dtype=str).fillna("")
+    col = lambda nome: "Sales History " + nome
+    h = h[(h[col("Product Name")].str.strip().str.lower() == VENDAS_PRODUTO.lower())
+          & (h[col("Transaction Status")].str.upper().isin(VENDAS_STATUS_OK))]
+    df = pd.DataFrame({
+        "valor": float(VENDAS_VALOR_FIXO),
+        "data": pd.to_datetime(h[col("Order Date")], errors="coerce") + pd.Timedelta(hours=VENDAS_FUSO_H),
+        "campanha": h[col("Tracking Source SCK")].str.strip(),
+        "conjunto": "", "criativo": "",
+        "pagamento": h[col("Payment Method")].str.strip(),
+        "pais": h["País"].str.strip() if "País" in h.columns else "",
+        "email": h[col("Buyer Email")].str.strip().str.lower(),
+    }).reset_index(drop=True)
+    print(f"     {len(df)} vendas de {VENDAS_PRODUTO} (US${VENDAS_VALOR_FIXO:g} cada)")
+    return df
+
+
+def load_vendas_planilha():
     print("  Lendo Vendas...")
     df = pd.read_csv(URL_VENDAS)
     df = df.rename(columns={
